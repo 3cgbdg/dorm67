@@ -277,6 +277,14 @@ export async function sendMessage(conversationId: string, content: string) {
   await batch.commit();
 }
 
+export async function updateMessage(conversationId: string, messageId: string, content: string) {
+  const messageRef = doc(db, "conversations", conversationId, "messages", messageId);
+  await updateDoc(messageRef, {
+    content,
+    editedAt: serverTimestamp(),
+  });
+}
+
 
 
 export async function updateProfile(input: { fullName: string; dormName: string; avatarUrl?: string }) {
