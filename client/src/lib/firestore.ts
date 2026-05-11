@@ -17,6 +17,8 @@ import {
   writeBatch,
   limit,
   runTransaction,
+  startAt,
+  endAt,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { api } from "@/lib/api";
@@ -357,4 +359,17 @@ export async function clearAiHistory(userId: string) {
   const batch = writeBatch(db);
   snap.docs.forEach((d) => batch.delete(d.ref));
   await batch.commit();
+}
+
+export async function searchUsers(searchTerm: string) {
+  if (!searchTerm.trim()) return [];
+  const q = query(
+    collection(db, "users"),
+    orderBy("fullName"),
+    startAt(searchTerm),
+    endAt(searchTerm + "\uf8ff"),
+    limit(20)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }

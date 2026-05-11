@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Bot, Home, MessageSquare, PlusSquare, ShoppingBag, User } from "lucide-react";
+import { Bot, Home, MessageSquare, PlusSquare, ShoppingBag, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppLogo } from "@/components/AppLogo";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
@@ -7,6 +7,7 @@ import { useUnreadCount } from "@/hooks/useUnreadCount";
 const links = [
   { to: "/feed",         label: "Campus",    icon: Home },
   { to: "/marketplace", label: "Market",    icon: ShoppingBag },
+  { to: "/discover",    label: "Discover",  icon: Users },
   { to: "/post",        label: "Create",    icon: PlusSquare },
   { to: "/chats",       label: "Chats",     icon: MessageSquare },
   { to: "/ai-assistant",label: "AI Help",   icon: Bot },
