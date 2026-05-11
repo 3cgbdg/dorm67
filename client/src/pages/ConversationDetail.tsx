@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ChevronLeft, Send, User, Smile, Edit2, Check, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { handleAppError } from "@/lib/utils";
+import { handleAppError, cn } from "@/lib/utils";
 
 type Message = {
   id: string;
