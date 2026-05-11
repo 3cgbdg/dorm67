@@ -41,18 +41,10 @@ service cloud.firestore {
 
     // Conversations & Messages
     match /conversations/{conversationId} {
-      // Allow reading if the user is one of the participants
-      allow read: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
-      
-      // Allow creating if the user is setting themselves as a participant
-      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participantIds;
-      
-      // Allow updating (lastMessage) if user is a participant
-      allow update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
+      allow read, write: if isAuthenticated();
 
       match /messages/{messageId} {
-        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
-        allow create: if isAuthenticated() && request.auth.uid == request.resource.data.senderId;
+        allow read, write: if isAuthenticated();
       }
     }
 

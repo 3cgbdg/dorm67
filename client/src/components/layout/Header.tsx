@@ -25,8 +25,10 @@ export function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur">
-      <h1 className="text-lg font-semibold">Dorm67</h1>
+    <header className="sticky top-0 z-30 hidden h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-md lg:flex">
+      <div className="flex items-center gap-4">
+        {/* Empty space for alignment since Sidebar has logo on desktop */}
+      </div>
       <div className="flex items-center gap-3">
         <Link to="/notifications" className="rounded-md p-2 hover:bg-muted">
           <Bell className="h-4 w-4" />

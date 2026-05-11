@@ -10,7 +10,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
       <Card className="h-full">
         <CardContent className="space-y-3">
           <img
-            src={listing.images[0] || "https://placehold.co/600x400?text=Listing"}
+            src={
+              listing.images[0]?.includes("localhost") 
+                ? "https://placehold.co/600x400?text=Image+Unavailable" 
+                : listing.images[0] || "https://placehold.co/600x400?text=Listing"
+            }
             alt={listing.title}
             className="h-44 w-full rounded-md object-cover"
           />
