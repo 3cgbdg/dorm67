@@ -102,7 +102,6 @@ export function ConversationDetailPage() {
         </Avatar>
         <div>
           <h3 className="text-sm font-semibold leading-none">{otherUser?.fullName || "Chat"}</h3>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">Online</p>
         </div>
       </div>
 
