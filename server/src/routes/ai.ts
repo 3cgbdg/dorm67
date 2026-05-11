@@ -38,41 +38,59 @@ aiRouter.post("/chat", async (req: AuthRequest, res) => {
     });
   }
 
+  // SSE streaming response
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Ai-Remaining", String(quota.remaining));
+  res.flushHeaders();
+
   try {
     const userMsg = parsed.data.messages[parsed.data.messages.length - 1];
     
-    const batch = admin.firestore().batch();
-    
-    // 1. Save user message to chat history
-    const historyRef = admin.firestore()
+    // 1. Save user message to history immediately
+    await admin.firestore()
       .collection("aiChats")
       .doc(userId)
       .collection("messages")
-      .doc();
-    batch.set(historyRef, {
-      role: "user",
-      content: userMsg.content,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      .add({
+        role: "user",
+        content: userMsg.content,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    // 2. Stream reply to client AND collect for saving
+    let fullReply = "";
+    await streamAssistantReply(parsed.data.messages, (chunk) => {
+      fullReply += chunk;
+      if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+      }
     });
 
-    // 2. Create the background task for the AI
-    const taskRef = admin.firestore().collection("aiTasks").doc();
-    batch.set(taskRef, {
-      userId,
-      messages: parsed.data.messages,
-      status: "pending",
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    // 3. Save final assistant reply to history
+    if (fullReply) {
+      await admin.firestore()
+        .collection("aiChats")
+        .doc(userId)
+        .collection("messages")
+        .add({
+          role: "assistant",
+          content: fullReply,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    }
 
-    await batch.commit();
-
-    return res.json({ 
-      success: true, 
-      remaining: quota.remaining,
-      taskId: taskRef.id 
-    });
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ done: true, remaining: quota.remaining })}\n\n`);
+    }
   } catch (err) {
-    console.error("AI chat error:", err);
-    return res.status(500).json({ error: "Failed to initiate AI chat" });
+    console.error("AI streaming error:", err);
+    if (!res.writableEnded) {
+      const msg = err instanceof Error ? err.message : "AI error";
+      res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    }
+  } finally {
+    res.end();
   }
 });

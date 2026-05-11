@@ -65,38 +65,16 @@ export function AiAssistantPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
-  // Load and listen to conversation history
+  // Load initial history once, then handle updates locally during active session
   useEffect(() => {
     if (!user) return;
     setIsLoading(true);
     
-    // Subscribe to messages in real-time
-    const q = query(
-      collection(db, "aiChats", user.uid, "messages"),
-      orderBy("createdAt", "asc"),
-      limit(100)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const history = snapshot.docs.map((d) => ({
-        role: d.data().role,
-        content: d.data().content,
-      })) as Message[];
-      
-      setMessages(history);
-      
-      // If we were waiting for a streaming reply and it just appeared, stop streaming state
-      if (history.length > 0 && history[history.length - 1].role === "assistant") {
-        setIsStreaming(false);
-      }
-      
-      setIsLoading(false);
-    }, (err) => {
-      console.error("History listen error:", err);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
+    loadAiHistory(user.uid)
+      .then((history: AiChatMessage[]) => {
+        setMessages(history.map(m => ({ role: m.role, content: m.content })));
+      })
+      .finally(() => setIsLoading(false));
   }, [user]);
 
   // Listen for active AI tasks for this user
@@ -163,10 +141,54 @@ export function AiAssistantPage() {
         throw new Error(errText || "Request failed");
       }
       
-      // The message is now being handled by the server-side queue.
-      // We don't need to read the stream here because we have an onSnapshot listener
-      // that will catch the user's message and the assistant's reply automatically.
-      
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      if (!reader) throw new Error("No response stream");
+
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6)) as {
+              chunk?: string;
+              done?: boolean;
+              remaining?: number;
+              error?: string;
+            };
+            if (parsed.error) throw new Error(parsed.error);
+            if (parsed.remaining !== undefined) setRemaining(parsed.remaining);
+            if (parsed.chunk) {
+              finalReply += parsed.chunk;
+              setMessages((prev) => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last && last.role === "assistant") {
+                  updated[updated.length - 1] = {
+                    role: "assistant",
+                    content: last.content + parsed.chunk,
+                  };
+                }
+                return updated;
+              });
+            }
+          } catch (parseErr) {
+            if (
+              parseErr instanceof Error &&
+              parseErr.message !== "Unexpected end of JSON input"
+            ) {
+              throw parseErr;
+            }
+          }
+        }
+      }
     } catch (err) {
       handleAppError(err, toast);
       // Remove the empty placeholder on error
