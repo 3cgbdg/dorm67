@@ -12,11 +12,10 @@ export function useAuth() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
-      // Never block routing on Firestore profile reads.
-      setLoading(false);
-
+      
       if (!nextUser) {
         setProfile(null);
+        setLoading(false); // Only stop loading if we're sure there's no user
         return;
       }
 
@@ -31,6 +30,8 @@ export function useAuth() {
         } catch (error) {
           console.error("Failed to load user profile from Firestore", error);
           setProfile(null);
+        } finally {
+          setLoading(false);
         }
       })();
     });

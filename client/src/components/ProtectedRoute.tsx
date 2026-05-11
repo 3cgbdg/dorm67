@@ -6,10 +6,12 @@ export function ProtectedRoute() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <PageLoader text="Authenticating..." />;
+    return <PageLoader text="Verifying access..." />;
   }
+  
   if (!user) {
     return <Navigate to="/auth/onboarding" replace />;
   }
+  
   return <Outlet />;
 }
