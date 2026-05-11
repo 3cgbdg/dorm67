@@ -87,7 +87,7 @@ export function DiscoverPage() {
                     <div className="pt-2">
                       <Button 
                         size="sm" 
-                        variant="secondary" 
+                        variant="outline" 
                         className="w-full gap-2"
                         onClick={() => handleStartChat(user.id)}
                       >
