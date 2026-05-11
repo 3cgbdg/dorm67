@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import { collection, doc, onSnapshot, orderBy, query, getDoc } from "firebase/firestore";
 import { useParams, useNavigate } from "react-router-dom";
-import { sendMessage, updateMessage } from "@/lib/firestore";
+import { sendMessage, updateMessage, deleteMessage } from "@/lib/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, Send, User, Smile, Edit2, Check, X } from "lucide-react";
+import { ChevronLeft, Send, User, Smile, Edit2, Check, X, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { handleAppError, cn } from "@/lib/utils";
@@ -84,6 +84,16 @@ export function ConversationDetailPage() {
     }
   };
 
+  const handleDelete = async (messageId: string) => {
+    if (!window.confirm("Are you sure you want to delete this message?")) return;
+    try {
+      await deleteMessage(id, messageId);
+      toast.success("Message deleted");
+    } catch (err) {
+      handleAppError(err, toast);
+    }
+  };
+
   const addEmoji = (emoji: string) => {
     setMessage(prev => prev + emoji);
     setShowEmoji(false);
@@ -145,12 +155,22 @@ export function ConversationDetailPage() {
                         </p>
                       </div>
                       {isMe && (
-                        <button 
-                          onClick={() => { setEditingId(item.id); setEditValue(item.content); }}
-                          className="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 p-1 hover:text-primary"
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="absolute -left-14 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-50 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={() => { setEditingId(item.id); setEditValue(item.content); }}
+                            className="p-1 hover:text-primary transition-colors"
+                            title="Edit"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(item.id)}
+                            className="p-1 hover:text-destructive transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       )}
                     </>
                   )}

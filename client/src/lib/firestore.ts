@@ -110,6 +110,30 @@ export async function createAnnouncementComment(
   await batch.commit();
 }
 
+export async function updateAnnouncementComment(
+  announcementId: string,
+  commentId: string,
+  content: string
+) {
+  const commentRef = doc(db, "announcements", announcementId, "comments", commentId);
+  await updateDoc(commentRef, {
+    content,
+    editedAt: serverTimestamp(),
+  });
+}
+
+export async function deleteAnnouncementComment(
+  announcementId: string,
+  commentId: string
+) {
+  const announcementRef = doc(db, "announcements", announcementId);
+  const commentRef = doc(db, "announcements", announcementId, "comments", commentId);
+  const batch = writeBatch(db);
+  batch.delete(commentRef);
+  batch.update(announcementRef, { commentsCount: increment(-1) });
+  await batch.commit();
+}
+
 export async function toggleCommentLike(announcementId: string, commentId: string) {
   const user = requireUser();
   const commentRef = doc(db, "announcements", announcementId, "comments", commentId);
@@ -271,6 +295,7 @@ export async function sendMessage(conversationId: string, content: string) {
   batch.set(messageRef, { senderId: user.uid, content, createdAt: serverTimestamp() });
   batch.update(conversationRef, {
     lastMessage: content,
+    lastMessageId: messageRef.id,
     lastMessageAt: serverTimestamp(),
     participantIds: arrayUnion(user.uid),
   });
@@ -279,9 +304,55 @@ export async function sendMessage(conversationId: string, content: string) {
 
 export async function updateMessage(conversationId: string, messageId: string, content: string) {
   const messageRef = doc(db, "conversations", conversationId, "messages", messageId);
-  await updateDoc(messageRef, {
-    content,
-    editedAt: serverTimestamp(),
+  const convRef = doc(db, "conversations", conversationId);
+  
+  await runTransaction(db, async (tx) => {
+    const convSnap = await tx.get(convRef);
+    
+    tx.update(messageRef, {
+      content,
+      editedAt: serverTimestamp(),
+    });
+    
+    // If this was the last message, update the preview
+    if (convSnap.exists() && convSnap.data().lastMessageId === messageId) {
+       tx.update(convRef, { lastMessage: content });
+    }
+  });
+}
+
+export async function deleteMessage(conversationId: string, messageId: string) {
+  const messageRef = doc(db, "conversations", conversationId, "messages", messageId);
+  const convRef = doc(db, "conversations", conversationId);
+
+  await runTransaction(db, async (tx) => {
+    const convSnap = await tx.get(convRef);
+    tx.delete(messageRef);
+
+    // If this was the last message, try to find the previous one for the preview
+    if (convSnap.exists() && convSnap.data().lastMessageId === messageId) {
+      const q = query(
+        collection(db, "conversations", conversationId, "messages"),
+        orderBy("createdAt", "desc"),
+        limit(2)
+      );
+      const prevMessages = await getDocs(q);
+      const prevMsg = prevMessages.docs.find(d => d.id !== messageId);
+      
+      if (prevMsg) {
+        tx.update(convRef, {
+          lastMessage: prevMsg.data().content,
+          lastMessageId: prevMsg.id,
+          lastMessageAt: prevMsg.data().createdAt
+        });
+      } else {
+        tx.update(convRef, {
+          lastMessage: "",
+          lastMessageId: "",
+          lastMessageAt: serverTimestamp()
+        });
+      }
+    }
   });
 }
 
