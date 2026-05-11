@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: dorm67-server
+    env: docker
+    rootDir: server
+    plan: starter
