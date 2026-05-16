@@ -28,10 +28,31 @@ const AvatarFallback = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Fallback
     ref={ref}
-    className={cn("flex h-full w-full items-center justify-center rounded-full bg-muted", className)}
+    className={cn("flex h-full w-full items-center justify-center rounded-full bg-surface-2", className)}
     {...props}
   />
 ));
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName;
 
-export { Avatar, AvatarImage, AvatarFallback };
+function initialsFromName(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+/** Convenience: image + initials fallback from `name`. */
+function UserAvatar({ src, name = "User", className }: { src?: string; name?: string; className?: string }) {
+  const initials = initialsFromName(name);
+  return (
+    <Avatar className={className}>
+      <AvatarImage src={src} alt={name} />
+      <AvatarFallback>{initials}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+export { Avatar, AvatarImage, AvatarFallback, UserAvatar, initialsFromName };

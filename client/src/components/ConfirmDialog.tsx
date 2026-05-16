@@ -16,7 +16,9 @@ type Props = {
   description: string;
   onConfirm: () => void;
   triggerLabel?: string;
+  /** @deprecated use `danger` */
   destructive?: boolean;
+  danger?: boolean;
 };
 
 export function ConfirmDialog({
@@ -25,11 +27,13 @@ export function ConfirmDialog({
   onConfirm,
   triggerLabel = "Confirm",
   destructive = false,
+  danger = false,
 }: Props) {
+  const isDanger = danger || destructive;
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant={destructive ? "destructive" : "outline"}>
+        <Button variant={isDanger ? "danger" : "outline"}>
           {triggerLabel}
         </Button>
       </AlertDialogTrigger>

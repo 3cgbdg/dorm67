@@ -2,17 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Canonical design tokens (light) */
 :root {
-  --background: 34 38% 96%;
-  --foreground: 26 13% 24%;
-  --card: 36 30% 94%;
-  --card-foreground: 26 13% 24%;
-  --primary: 31 24% 44%;
-  --primary-foreground: 34 50% 98%;
-  --muted: 32 24% 89%;
-  --muted-foreground: 27 11% 42%;
-  --border: 31 22% 78%;
-  --radius: 0.9rem;
+  --bg: 0 0% 98%;
+  --surface: 0 0% 100%;
+  --surface-2: 240 5% 96%;
+  --ink: 240 6% 10%;
+  --ink-soft: 240 4% 46%;
+  --muted-fg: 240 4% 64%;
+
+  --brand: 239 84% 60%;
+  --brand-hover: 239 84% 52%;
+  --brand-soft: 226 100% 97%;
+  --brand-ring: 228 96% 89%;
+  --brand-fg: 0 0% 100%;
+
+  --border: 240 6% 90%;
+
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+  --danger: 0 72% 51%;
+  --danger-soft: 0 86% 97%;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-pill: 9999px;
+  --radius: var(--radius-lg);
+
+  --shadow-card: 0 1px 2px hsl(240 6% 10% / 0.04), 0 1px 1px hsl(240 6% 10% / 0.06);
+  --shadow-pop: 0 12px 32px -8px hsl(240 6% 10% / 0.12);
+}
+
+.dark {
+  --bg: 240 10% 4%;
+  --surface: 240 6% 10%;
+  --surface-2: 240 4% 16%;
+  --ink: 0 0% 98%;
+  --ink-soft: 240 5% 65%;
+  --muted-fg: 240 4% 46%;
+
+  --brand: 234 89% 74%;
+  --brand-hover: 234 89% 68%;
+  --brand-soft: 244 47% 20%;
+  --brand-ring: 244 55% 35%;
+  --brand-fg: 240 10% 4%;
+
+  --border: 240 4% 16%;
+
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+  --danger: 0 62% 50%;
+  --danger-soft: 0 40% 14%;
+
+  --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.2), 0 1px 1px hsl(0 0% 0% / 0.15);
+  --shadow-pop: 0 12px 32px -8px hsl(0 0% 0% / 0.35);
 }
 
 html {
@@ -34,20 +80,31 @@ input[type="number"] {
 }
 
 body {
-  @apply bg-background text-foreground min-h-screen;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  background-image: radial-gradient(
-    circle at 1px 1px,
-    rgba(0, 0, 0, 0.05) 1px,
-    transparent 0
-  );
-  background-size: 18px 18px;
+  @apply bg-bg text-ink min-h-screen antialiased;
+  font-family: "Geist", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 a {
-  @apply text-primary no-underline;
+  @apply text-brand no-underline;
 }
 
-.page-container {
-  @apply mx-auto w-full max-w-6xl px-4 py-6;
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .page-container {
+    @apply mx-auto w-full max-w-6xl px-4 py-6;
+  }
+
+  /* Hide scrollbar but keep scroll (e.g. sidebar nav rail) */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }

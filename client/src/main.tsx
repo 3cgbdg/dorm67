@@ -3,8 +3,15 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import { Toaster, toast } from "sonner";
 import { useRegisterSW } from "virtual:pwa-register/react";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
 import { router } from "@/router";
 import "@/index.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { hydrateThemeClassFromStorage } from "@/store/uiStore";
+
+hydrateThemeClassFromStorage();
 
 function PwaUpdateNotifier() {
   const {
@@ -29,8 +36,12 @@ function PwaUpdateNotifier() {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
-    <Toaster richColors position="top-right" />
-    <PwaUpdateNotifier />
+    <ThemeProvider>
+      <TooltipProvider delayDuration={300}>
+        <RouterProvider router={router} />
+        <Toaster richColors position="top-right" />
+        <PwaUpdateNotifier />
+      </TooltipProvider>
+    </ThemeProvider>
   </React.StrictMode>
 );

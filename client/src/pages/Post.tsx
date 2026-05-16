@@ -8,7 +8,7 @@ export function PostPage() {
         <Card className="h-full">
           <CardContent className="p-6">
             <h2 className="text-xl font-semibold">Create listing</h2>
-            <p className="text-muted-foreground">Sell items in campus marketplace.</p>
+            <p className="text-ink-soft">Sell items in campus marketplace.</p>
           </CardContent>
         </Card>
       </Link>
@@ -16,7 +16,7 @@ export function PostPage() {
         <Card className="h-full">
           <CardContent className="p-6">
             <h2 className="text-xl font-semibold">Create announcement</h2>
-            <p className="text-muted-foreground">Share updates with your campus community.</p>
+            <p className="text-ink-soft">Share updates with your campus community.</p>
           </CardContent>
         </Card>
       </Link>

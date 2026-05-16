@@ -7,6 +7,7 @@ import { DORMS, UNIVERSITIES } from "@/lib/constants";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
 
 export function UniversitySelectPage() {
   const [universityId, setUniversityId] = useState(UNIVERSITIES[0].id);
@@ -49,16 +50,20 @@ export function UniversitySelectPage() {
       <Card className="w-full max-w-md">
         <CardContent className="space-y-4 p-6">
           <h1 className="text-2xl font-semibold">Choose your campus</h1>
-          <Select
-            value={universityId}
-            onValueChange={setUniversityId}
-            options={UNIVERSITIES.map((item) => ({ value: item.id, label: item.name }))}
-          />
-          <Select
-            value={dormName}
-            onValueChange={setDormName}
-            options={[{ value: "", label: "Select dorm" }, ...dormOptions]}
-          />
+          <Field label="University">
+            <Select
+              value={universityId}
+              onValueChange={setUniversityId}
+              options={UNIVERSITIES.map((item) => ({ value: item.id, label: item.name }))}
+            />
+          </Field>
+          <Field label="Dorm">
+            <Select
+              value={dormName}
+              onValueChange={setDormName}
+              options={[{ value: "", label: "Select dorm" }, ...dormOptions]}
+            />
+          </Field>
           <Button className="w-full" onClick={handleSave}>
             Continue
           </Button>

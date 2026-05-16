@@ -1,59 +1,97 @@
 import { Link } from "react-router-dom";
 import { MessageCircle, ThumbsUp } from "lucide-react";
-import { Avatar } from "@/components/Avatar";
+import { UserAvatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { formatDate, cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { toggleAnnouncementLike } from "@/lib/firestore";
 import type { Announcement } from "@/types";
 
-export function AnnouncementCard({ announcement }: { announcement: Announcement }) {
+export function AnnouncementCard({
+  announcement,
+  disableLink = false,
+  detail = false,
+}: {
+  announcement: Announcement;
+  /** When true, render as a static card (e.g. on detail page). */
+  disableLink?: boolean;
+  /** Full body text, no link — for announcement detail. */
+  detail?: boolean;
+}) {
   const user = useAuthStore((s) => s.user);
   const isLiked = user && announcement.likedBy?.includes(user.uid);
 
-  return (
-    <Link to={`/announcement/${announcement.id}`}>
-      <Card>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Avatar src={announcement.userAvatar} name={announcement.userName} />
-              <div>
-                <div className="text-sm font-medium">{announcement.userName}</div>
-                <div className="text-xs text-muted-foreground">
-                  {formatDate(announcement.createdAt)}
-                </div>
-              </div>
+  const inner = (
+    <Card
+      className={cn(
+        "h-full overflow-hidden transition-all duration-200 motion-reduce:transition-none",
+        !disableLink && "hover:-translate-y-0.5 hover:shadow-pop"
+      )}
+    >
+        <CardHeader className="flex-row items-start justify-between gap-3 space-y-0 pb-2">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <UserAvatar src={announcement.userAvatar} name={announcement.userName} className="h-10 w-10 shrink-0" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{announcement.userName}</p>
+              <p className="text-xs text-ink-soft">{formatDate(announcement.createdAt)}</p>
             </div>
-            {announcement.isOfficial ? <Badge>Official</Badge> : null}
           </div>
-          <div>
-            <h3 className="font-semibold">{announcement.title}</h3>
-            <p className="line-clamp-3 text-sm text-muted-foreground">
-              {announcement.body}
-            </p>
-          </div>
-          <div className="flex gap-4 text-sm text-muted-foreground">
-            <button 
-              className={cn(
-                "inline-flex items-center gap-1 transition-colors",
-                isLiked ? "text-primary" : "hover:text-foreground"
-              )}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleAnnouncementLike(announcement.id);
-              }}
-            >
-              <ThumbsUp className={cn("h-4 w-4", isLiked && "fill-current")} /> {announcement.likesCount}
-            </button>
-            <span className="inline-flex items-center gap-1">
-              <MessageCircle className="h-4 w-4" /> {announcement.commentsCount}
-            </span>
-          </div>
+          {announcement.isOfficial ? (
+            <Badge variant="brand-soft" className="shrink-0">
+              Official
+            </Badge>
+          ) : null}
+        </CardHeader>
+        <CardContent className="space-y-2 pb-3 pt-0">
+          <h3
+            className={cn(
+              "text-base font-semibold leading-snug",
+              detail ? "" : "line-clamp-2"
+            )}
+          >
+            {announcement.title}
+          </h3>
+          <p
+            className={cn(
+              "text-sm text-ink-soft",
+              detail ? "whitespace-pre-wrap" : "line-clamp-3"
+            )}
+          >
+            {announcement.body}
+          </p>
         </CardContent>
+        <CardFooter className="justify-between border-t border-border/60 bg-surface-2/30 px-4 py-3 text-sm text-ink-soft">
+          <button
+            type="button"
+            className={cn(
+              "inline-flex min-h-9 min-w-9 items-center gap-1.5 rounded-md px-2 transition-colors motion-reduce:transition-none",
+              isLiked ? "text-brand" : "hover:text-ink"
+            )}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleAnnouncementLike(announcement.id);
+            }}
+          >
+            <ThumbsUp className={cn("h-4 w-4 shrink-0", isLiked && "fill-current")} />
+            <span>{announcement.likesCount}</span>
+          </button>
+          <span className="inline-flex min-h-9 items-center gap-1.5">
+            <MessageCircle className="h-4 w-4 shrink-0" />
+            {announcement.commentsCount}
+          </span>
+        </CardFooter>
       </Card>
+  );
+
+  if (disableLink) {
+    return <div className="block">{inner}</div>;
+  }
+
+  return (
+    <Link to={`/announcement/${announcement.id}`} className="block">
+      {inner}
     </Link>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   collection,
   getDocs,
@@ -10,17 +10,17 @@ import {
   where,
   endAt,
 } from "firebase/firestore";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { findOrCreateDirectConversation } from "@/lib/firestore";
 import { useAuthStore } from "@/store/authStore";
 import { MessageCircle } from "lucide-react";
-import { Avatar } from "@/components/Avatar";
-import { EmptyState } from "@/components/EmptyState";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/data/EmptyState";
+import { PullRefreshChrome } from "@/components/layout/PullRefreshChrome";
 import { Input } from "@/components/ui/input";
-import { timeAgo } from "@/lib/utils";
+import { ConversationItem } from "@/components/feature/ConversationItem";
+import { UserCard } from "@/components/feature/UserCard";
 import type { Conversation } from "@/types";
 
 type SearchUser = {
@@ -28,6 +28,7 @@ type SearchUser = {
   fullName: string;
   universityId?: string;
   avatarUrl?: string;
+  dormName?: string;
 };
 
 export function ChatsPage() {
@@ -50,7 +51,6 @@ export function ChatsPage() {
     });
   }, [user]);
 
-  // Filter by last message OR participant name
   const filtered = conversations.filter((c) => {
     if (!search.trim()) return true;
     const msg = (c.lastMessage || "").toLowerCase().includes(search.toLowerCase());
@@ -61,7 +61,6 @@ export function ChatsPage() {
     return msg || name;
   });
 
-  // Search university users for new conversations
   useEffect(() => {
     if (!user || !profile?.universityId) {
       setSearchUsers([]);
@@ -91,8 +90,15 @@ export function ChatsPage() {
     })();
   }, [profile?.universityId, search, user]);
 
+  const onPull = useCallback(async () => {
+    await new Promise((r) => setTimeout(r, 450));
+    toast.success("Chats refreshed");
+  }, []);
+
   return (
-    <div className="page-container space-y-4">
+    <>
+      <PullRefreshChrome onRefresh={onPull} />
+      <div className="page-container space-y-4">
       <h2 className="text-2xl font-semibold">Chats</h2>
       <Input
         placeholder="Search conversations or people..."
@@ -100,78 +106,61 @@ export function ChatsPage() {
         onChange={(e) => setSearch(e.target.value)}
       />
       {search.trim().length > 0 && search.trim().length < 2 ? (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-ink-soft">
           Type at least 2 letters to search people in your university.
         </p>
       ) : null}
 
-      {/* People search results */}
       {searchUsers.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">People from your university</p>
-          {searchUsers.map((candidate) => (
-            <Card key={candidate.id}>
-              <CardContent className="flex items-center justify-between gap-3 p-4">
-                <div className="flex items-center gap-3">
-                  <Avatar src={candidate.avatarUrl} name={candidate.fullName} />
-                  <p className="font-medium">{candidate.fullName || "Student"}</p>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={async () => {
-                    const conversationId = await findOrCreateDirectConversation(candidate.id);
-                    navigate(`/conversation/${conversationId}`);
-                  }}
-                >
-                  Start chat
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          <p className="text-sm font-medium text-ink-soft">People from your university</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {searchUsers.map((candidate) => (
+              <UserCard
+                key={candidate.id}
+                user={candidate}
+                onMessage={async (userId) => {
+                  const conversationId = await findOrCreateDirectConversation(userId);
+                  navigate(`/conversation/${conversationId}`);
+                }}
+              />
+            ))}
+          </div>
         </div>
       ) : null}
 
-      {/* Conversations list */}
       <div className="space-y-2">
         {filtered.length === 0 && !search ? (
-          <EmptyState 
-            icon={MessageCircle} 
-            title="No messages yet" 
+          <EmptyState
+            icon={MessageCircle}
+            title="No messages yet"
             description="You don't have any active chats. Search for a student above to start a conversation, or message a seller from the marketplace."
           />
         ) : filtered.length === 0 && search && searchUsers.length === 0 ? (
-          <EmptyState 
-            icon={MessageCircle} 
-            title="No results found" 
+          <EmptyState
+            icon={MessageCircle}
+            title="No results found"
             description="No conversations or students match your search."
           />
         ) : (
           filtered.map((conversation) => {
-          const otherId = conversation.participantIds.find((id) => id !== user?.uid);
-          const other = otherId ? conversation.participantProfiles?.[otherId] : undefined;
-          const otherName = other?.fullName ?? "Student";
-          const otherAvatar = other?.avatarUrl;
+            const otherId = conversation.participantIds.find((id) => id !== user?.uid);
+            const other = otherId ? conversation.participantProfiles?.[otherId] : undefined;
+            const otherName = other?.fullName ?? "Student";
+            const otherAvatar = other?.avatarUrl;
 
-          return (
-            <Link key={conversation.id} to={`/conversation/${conversation.id}`}>
-              <Card className="transition-colors hover:bg-muted/50">
-                <CardContent className="flex items-center gap-3 p-4">
-                  <Avatar src={otherAvatar} name={otherName} />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{otherName}</p>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {conversation.lastMessage || "Start a conversation..."}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {timeAgo(conversation.lastMessageAt)}
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        }))}
+            return (
+              <ConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                otherName={otherName}
+                otherAvatar={otherAvatar}
+              />
+            );
+          })
+        )}
       </div>
     </div>
+    </>
   );
 }

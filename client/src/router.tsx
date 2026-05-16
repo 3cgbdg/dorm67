@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { AppShell } from "@/components/layout/AppShell";
 import { OnboardingPage } from "@/pages/auth/Onboarding";
 import { LoginPage } from "@/pages/auth/Login";
 import { RegisterPage } from "@/pages/auth/Register";
@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
     ),
     children: [
       {
-        element: <AppLayout />,
+        element: <AppShell />,
         children: [
           { index: true, element: <Navigate to="/feed" replace /> },
           { path: "feed", element: <FeedPage /> },

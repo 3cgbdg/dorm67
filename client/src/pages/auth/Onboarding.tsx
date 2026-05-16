@@ -11,7 +11,7 @@ export function OnboardingPage() {
           <AppLogo />
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold">Your campus, one app</h1>
-            <p className="text-muted-foreground">
+            <p className="text-ink-soft">
               Marketplace, campus feed, chats, and AI-enhanced listings in a cozy lofi web
               experience.
             </p>

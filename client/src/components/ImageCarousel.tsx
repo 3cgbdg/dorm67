@@ -52,7 +52,7 @@ export function ImageCarousel({ images, alt }: Props) {
 
   return (
     <div
-      className="relative select-none overflow-hidden rounded-md bg-muted"
+      className="relative select-none overflow-hidden rounded-md bg-surface-2"
       role="group"
       aria-label={`Image gallery for ${alt}`}
       tabIndex={0}
@@ -70,7 +70,7 @@ export function ImageCarousel({ images, alt }: Props) {
 
       {/* Skeleton */}
       {!loaded && (
-        <div className="absolute inset-0 z-10 animate-pulse bg-muted" />
+        <div className="absolute inset-0 z-10 animate-pulse bg-surface-2" />
       )}
 
       <AnimatePresence initial={false} custom={direction} mode="wait">

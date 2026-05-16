@@ -5,28 +5,60 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          '"Geist"',
+          "Inter",
+          "system-ui",
+          "-apple-system",
+          '"Segoe UI"',
+          "Roboto",
+          "sans-serif",
+        ],
+        mono: [
+          '"Geist Mono"',
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "monospace",
+        ],
+      },
       colors: {
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        card: "hsl(var(--card))",
-        "card-foreground": "hsl(var(--card-foreground))",
-        primary: "hsl(var(--primary))",
-        "primary-foreground": "hsl(var(--primary-foreground))",
-        muted: "hsl(var(--muted))",
-        "muted-foreground": "hsl(var(--muted-foreground))",
-        border: "hsl(var(--border))",
+        border: "hsl(var(--border) / <alpha-value>)",
+
+        bg: "hsl(var(--bg) / <alpha-value>)",
+        surface: "hsl(var(--surface) / <alpha-value>)",
+        "surface-2": "hsl(var(--surface-2) / <alpha-value>)",
+        ink: "hsl(var(--ink) / <alpha-value>)",
+        "ink-soft": "hsl(var(--ink-soft) / <alpha-value>)",
+        "muted-fg": "hsl(var(--muted-fg) / <alpha-value>)",
+
+        brand: "hsl(var(--brand) / <alpha-value>)",
+        "brand-hover": "hsl(var(--brand-hover) / <alpha-value>)",
+        "brand-soft": "hsl(var(--brand-soft) / <alpha-value>)",
+        "brand-ring": "hsl(var(--brand-ring) / <alpha-value>)",
+        "brand-fg": "hsl(var(--brand-fg) / <alpha-value>)",
+
+        success: "hsl(var(--success) / <alpha-value>)",
+        warning: "hsl(var(--warning) / <alpha-value>)",
+        danger: "hsl(var(--danger) / <alpha-value>)",
+        "danger-soft": "hsl(var(--danger-soft) / <alpha-value>)",
+      },
+      ringOffsetColor: {
+        bg: "hsl(var(--bg) / <alpha-value>)",
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        lg: "var(--radius-lg)",
+        md: "var(--radius-md)",
+        sm: "var(--radius-sm)",
+        xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
+        pill: "var(--radius-pill)",
       },
       boxShadow: {
-        lofi: "0 10px 25px rgba(73, 59, 43, 0.12)",
-      },
-      backgroundImage: {
-        grain:
-          "radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.05) 1px, transparent 0)",
+        card: "var(--shadow-card)",
+        pop: "var(--shadow-pop)",
       },
     },
   },

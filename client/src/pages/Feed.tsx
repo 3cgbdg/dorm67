@@ -1,19 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { handleAppError } from "@/lib/utils";
 import { MessageSquare } from "lucide-react";
 import { AnnouncementCard } from "@/components/AnnouncementCard";
-import { EmptyState } from "@/components/EmptyState";
+import { EmptyState } from "@/components/data/EmptyState";
+import { PullRefreshChrome } from "@/components/layout/PullRefreshChrome";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { fadeUpVariants, staggerContainerVariants } from "@/lib/motion";
 import type { Announcement } from "@/types";
 
 export function FeedPage() {
+  const reduceMotion = useReducedMotion();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "official" | "students">("all");
+
+  const onPull = useCallback(async () => {
+    await new Promise((r) => setTimeout(r, 450));
+    toast.success("Feed refreshed");
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
@@ -47,7 +57,9 @@ export function FeedPage() {
   }, [announcements, filter, search]);
 
   return (
-    <div className="page-container space-y-4">
+    <>
+      <PullRefreshChrome onRefresh={onPull} />
+      <div className="page-container space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-semibold">Campus feed</h2>
         <a href="/create-announcement">
@@ -55,22 +67,16 @@ export function FeedPage() {
         </a>
       </div>
       <Input placeholder="Search announcements..." value={search} onChange={(e) => setSearch(e.target.value)} />
-      <div className="flex gap-2">
-        <Button variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>
+      <div className="flex flex-wrap gap-2">
+        <Chip selected={filter === "all"} onClick={() => setFilter("all")}>
           All
-        </Button>
-        <Button
-          variant={filter === "official" ? "default" : "outline"}
-          onClick={() => setFilter("official")}
-        >
+        </Chip>
+        <Chip selected={filter === "official"} onClick={() => setFilter("official")}>
           Official
-        </Button>
-        <Button
-          variant={filter === "students" ? "default" : "outline"}
-          onClick={() => setFilter("students")}
-        >
+        </Chip>
+        <Chip selected={filter === "students"} onClick={() => setFilter("students")}>
           Students
-        </Button>
+        </Chip>
       </div>
       <div className="space-y-3">
         {filtered.length === 0 ? (
@@ -85,11 +91,21 @@ export function FeedPage() {
             }
           />
         ) : (
-          filtered.map((announcement) => (
-            <AnnouncementCard key={announcement.id} announcement={announcement} />
-          ))
+          <motion.div
+            className="space-y-3"
+            variants={reduceMotion ? undefined : staggerContainerVariants}
+            initial={reduceMotion ? false : "hidden"}
+            animate={reduceMotion ? false : "visible"}
+          >
+            {filtered.map((announcement) => (
+              <motion.div key={announcement.id} variants={reduceMotion ? undefined : fadeUpVariants}>
+                <AnnouncementCard announcement={announcement} />
+              </motion.div>
+            ))}
+          </motion.div>
         )}
       </div>
     </div>
+    </>
   );
 }

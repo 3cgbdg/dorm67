@@ -15,6 +15,7 @@ import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { AiMessageBubble, AiSuggestionChip, TypingDots } from "@/components/feature/AiChatParts";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
@@ -27,26 +28,12 @@ const SUGGESTIONS = [
   "Як знайти сусіда по кімнаті?",
 ];
 
-function TypingDots() {
-  return (
-    <div className="flex items-center gap-1 px-1 py-0.5">
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground"
-          style={{ animationDelay: `${i * 0.15}s` }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function LoadingSkeleton() {
   return (
     <div className="space-y-3 pt-4">
       {[1, 2, 3].map((i) => (
         <div key={i} className={cn("flex", i % 2 === 0 ? "justify-end" : "justify-start")}>
-          <div className="h-10 w-48 animate-pulse rounded-2xl bg-muted" />
+          <div className="h-10 w-48 animate-pulse rounded-2xl bg-surface-2" />
         </div>
       ))}
     </div>
@@ -207,12 +194,12 @@ export function AiAssistantPage() {
     <div className="page-container flex h-[calc(100vh-4rem)] max-w-3xl flex-col gap-0 p-0">
       {/* Header */}
       <div className="flex items-center gap-3 border-b px-4 py-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-          <Bot className="h-5 w-5 text-primary" />
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/10">
+          <Bot className="h-5 w-5 text-brand" />
         </div>
         <div>
           <h2 className="font-semibold">Dorm67 Assistant</h2>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-ink-soft">
             {remaining !== null
               ? `${remaining} messages remaining today`
               : "AI-powered campus helper"}
@@ -225,12 +212,12 @@ export function AiAssistantPage() {
               size="sm"
               onClick={handleClearHistory}
               title="Clear conversation history"
-              className="text-muted-foreground hover:text-destructive"
+              className="text-ink-soft hover:text-danger"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
-          <Sparkles className="h-4 w-4 text-primary/60" />
+          <Sparkles className="h-4 w-4 text-brand/60" />
         </div>
       </div>
 
@@ -240,18 +227,12 @@ export function AiAssistantPage() {
           <LoadingSkeleton />
         ) : messages.length === 0 ? (
           <div className="space-y-4 pt-4">
-            <p className="text-center text-sm text-muted-foreground">
+            <p className="text-center text-sm text-ink-soft">
               Ask me anything about Dorm67 or campus life — your history is saved automatically!
             </p>
             <div className="grid gap-2 sm:grid-cols-2">
               {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => sendMessage(s)}
-                  className="rounded-lg border bg-card px-4 py-3 text-left text-sm transition hover:bg-muted"
-                >
-                  {s}
-                </button>
+                <AiSuggestionChip key={s} label={s} onPick={sendMessage} />
               ))}
             </div>
           </div>
@@ -262,18 +243,11 @@ export function AiAssistantPage() {
               className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
             >
               {msg.role === "assistant" && (
-                <div className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Bot className="h-4 w-4 text-primary" />
+                <div className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand/10">
+                  <Bot className="h-4 w-4 text-brand" />
                 </div>
               )}
-              <div
-                className={cn(
-                  "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm",
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-sm"
-                    : "bg-muted rounded-bl-sm"
-                )}
-              >
+              <AiMessageBubble role={msg.role}>
                 {msg.content === "" && msg.role === "assistant" ? (
                   <TypingDots />
                 ) : msg.role === "user" ? (
@@ -301,24 +275,24 @@ export function AiAssistantPage() {
                     </ReactMarkdown>
                   </div>
                 )}
-              </div>
+              </AiMessageBubble>
             </div>
           ))
         )}
 
         {isAiProcessing && messages.length > 0 && messages[messages.length - 1].role !== "assistant" && (
           <div className="flex justify-start">
-            <div className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-              <Bot className="h-4 w-4 text-primary" />
+            <div className="mr-2 mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand/10">
+              <Bot className="h-4 w-4 text-brand" />
             </div>
-            <div className="bg-muted rounded-2xl rounded-bl-sm px-4 py-2.5">
+            <div className="bg-surface-2 rounded-2xl rounded-bl-sm px-4 py-2.5">
               <TypingDots />
             </div>
           </div>
         )}
 
         {error && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="rounded-lg border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger">
             {error}
             <button
               className="ml-2 underline"

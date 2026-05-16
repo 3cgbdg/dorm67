@@ -10,10 +10,12 @@ import {
   deleteAnnouncementComment,
 } from "@/lib/firestore";
 import { ThumbsUp, Edit2, Trash2, Check, X } from "lucide-react";
-import { Avatar } from "@/components/Avatar";
+import { UserAvatar } from "@/components/ui/avatar";
 import { AnnouncementCard } from "@/components/AnnouncementCard";
-import { PageLoader } from "@/components/PageLoader";
+import { PageLoader } from "@/components/data/PageLoader";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { formatDate, cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -76,120 +78,164 @@ export function AnnouncementDetailPage() {
   if (!announcement) return <PageLoader text="Loading announcement..." />;
 
   return (
-    <div className="page-container max-w-3xl space-y-4">
-      <AnnouncementCard announcement={announcement} />
+    <div className="page-container max-w-6xl space-y-6 pb-8">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+        <div className="min-w-0 space-y-4">
+          <AnnouncementCard announcement={announcement} disableLink detail />
 
-      <div className="space-y-2">
-        <h3 className="text-lg font-semibold">Comments</h3>
-        <div className="flex gap-2">
-          <Input value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Write a comment..." />
-          <Button
-            onClick={async () => {
-              if (!newComment.trim()) {
-                toast.error("Comment cannot be empty");
-                return;
-              }
-              await createAnnouncementComment(id, newComment.trim());
-              setNewComment("");
-            }}
-          >
-            Post
-          </Button>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {rootComments.map((comment) => {
-          const isLiked = user && comment.likedBy?.includes(user.uid);
-          const isMe = user && comment.userId === user.uid;
-          const isEditing = editingCommentId === comment.id;
-
-          return (
-            <div key={comment.id} className="rounded-md border bg-card p-3 space-y-3 relative group">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Avatar src={comment.userAvatar} name={comment.userName} />
-                  <div>
-                    <div className="text-sm font-medium">{comment.userName}</div>
-                    <div className="text-xs text-muted-foreground">{formatDate(comment.createdAt)}</div>
-                  </div>
-                </div>
-                
-                {isMe && !isEditing && (
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7" 
-                      onClick={() => { setEditingCommentId(comment.id); setEditCommentValue(comment.content); }}
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7 text-destructive hover:text-destructive" 
-                      onClick={async () => {
-                        if (window.confirm("Delete this comment?")) {
-                          await deleteAnnouncementComment(id, comment.id);
-                          toast.success("Comment deleted");
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                )}
+          <Card>
+            <CardHeader className="space-y-1 pb-2">
+              <CardTitle className="text-lg">Comments</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Write a comment..."
+                  className="sm:flex-1"
+                />
+                <Button
+                  className="shrink-0 sm:w-auto"
+                  onClick={async () => {
+                    if (!newComment.trim()) {
+                      toast.error("Comment cannot be empty");
+                      return;
+                    }
+                    await createAnnouncementComment(id, newComment.trim());
+                    setNewComment("");
+                  }}
+                >
+                  Post
+                </Button>
               </div>
 
-              {isEditing ? (
-                <div className="space-y-2">
-                  <Input 
-                    value={editCommentValue} 
-                    onChange={(e) => setEditCommentValue(e.target.value)}
-                    className="text-sm"
-                    autoFocus
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setEditingCommentId(null)}><X className="h-4 w-4 mr-1" /> Cancel</Button>
-                    <Button size="sm" onClick={async () => {
-                      if (!editCommentValue.trim()) return;
-                      await updateAnnouncementComment(id, comment.id, editCommentValue.trim());
-                      setEditingCommentId(null);
-                      toast.success("Comment updated");
-                    }}><Check className="h-4 w-4 mr-1" /> Save</Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm">{comment.content}</p>
-                  <div className="flex gap-2">
-                    <button 
-                      className={cn(
-                        "inline-flex items-center gap-1 text-sm transition-colors",
-                        isLiked ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              <div className="space-y-3">
+                {rootComments.map((comment) => {
+                  const isLiked = user && comment.likedBy?.includes(user.uid);
+                  const isMe = user && comment.userId === user.uid;
+                  const isEditing = editingCommentId === comment.id;
+
+                  return (
+                    <div key={comment.id} className="group relative space-y-3 rounded-md border bg-surface p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <UserAvatar src={comment.userAvatar} name={comment.userName} />
+                          <div>
+                            <div className="text-sm font-medium">{comment.userName}</div>
+                            <div className="text-xs text-ink-soft">{formatDate(comment.createdAt)}</div>
+                          </div>
+                        </div>
+
+                        {isMe && !isEditing && (
+                          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => {
+                                setEditingCommentId(comment.id);
+                                setEditCommentValue(comment.content);
+                              }}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-danger hover:text-danger/80"
+                              onClick={async () => {
+                                if (window.confirm("Delete this comment?")) {
+                                  await deleteAnnouncementComment(id, comment.id);
+                                  toast.success("Comment deleted");
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={editCommentValue}
+                            onChange={(e) => setEditCommentValue(e.target.value)}
+                            className="text-sm"
+                            autoFocus
+                          />
+                          <div className="flex justify-end gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => setEditingCommentId(null)}>
+                              <X className="mr-1 h-4 w-4" /> Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={async () => {
+                                if (!editCommentValue.trim()) return;
+                                await updateAnnouncementComment(id, comment.id, editCommentValue.trim());
+                                setEditingCommentId(null);
+                                toast.success("Comment updated");
+                              }}
+                            >
+                              <Check className="mr-1 h-4 w-4" /> Save
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-sm">{comment.content}</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              className={cn(
+                                "inline-flex items-center gap-1 text-sm transition-colors",
+                                isLiked ? "text-brand" : "text-ink-soft hover:text-ink"
+                              )}
+                              onClick={() => toggleCommentLike(id, comment.id)}
+                            >
+                              <ThumbsUp className={cn("h-4 w-4", isLiked && "fill-current")} />{" "}
+                              {comment.likesCount || 0}
+                            </button>
+                          </div>
+                        </>
                       )}
-                      onClick={() => toggleCommentLike(id, comment.id)}
-                    >
-                      <ThumbsUp className={cn("h-4 w-4", isLiked && "fill-current")} /> {comment.likesCount || 0}
-                    </button>
-                  </div>
-                </>
-              )}
-              <div className="ml-4 space-y-3 border-l pl-3">
-                {(repliesByParent[comment.id] || []).map((reply) => (
-                  <div key={reply.id} className="rounded-md bg-muted p-2 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium">{reply.userName}</span>
-                      <span className="text-[10px] text-muted-foreground">{formatDate(reply.createdAt)}</span>
+                      <div className="ml-4 space-y-3 border-l pl-3">
+                        {(repliesByParent[comment.id] || []).map((reply) => (
+                          <div key={reply.id} className="space-y-1 rounded-md bg-surface-2 p-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium">{reply.userName}</span>
+                              <span className="text-[10px] text-ink-soft">{formatDate(reply.createdAt)}</span>
+                            </div>
+                            <div className="text-sm">{reply.content}</div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="text-sm">{reply.content}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            </div>
-          );
-        })}
+            </CardContent>
+          </Card>
+        </div>
+
+        <aside className="hidden space-y-4 lg:block lg:sticky lg:top-24">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">About this post</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-ink-soft">
+              <div className="flex items-center gap-3">
+                <UserAvatar src={announcement.userAvatar} name={announcement.userName} />
+                <div>
+                  <p className="font-medium text-ink">{announcement.userName}</p>
+                  <p>{formatDate(announcement.createdAt)}</p>
+                </div>
+              </div>
+              {announcement.isOfficial ? <Badge variant="brand-soft">Official</Badge> : <span>Student post</span>}
+            </CardContent>
+          </Card>
+        </aside>
       </div>
     </div>
   );

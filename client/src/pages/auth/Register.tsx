@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -62,19 +63,36 @@ export function RegisterPage() {
       <Card className="w-full max-w-md">
         <CardContent className="space-y-4 p-6">
           <h1 className="text-2xl font-semibold">Create account</h1>
-          <Input placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-          <Input placeholder="University email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <Input placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <Select
-            value={universityId}
-            onValueChange={setUniversityId}
-            options={UNIVERSITIES.map((item) => ({ value: item.id, label: item.name }))}
-          />
-          <Select
-            value={dormName}
-            onValueChange={setDormName}
-            options={[{ value: "", label: "Select dorm" }, ...dormOptions]}
-          />
+          <Field label="Full name" htmlFor="auth-register-name">
+            <Input id="auth-register-name" placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          </Field>
+          <Field label="University email" htmlFor="auth-register-email" helpText={university ? `Must end with @${university.domain}` : undefined}>
+            <Input id="auth-register-email" placeholder="University email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="Password" htmlFor="auth-register-password">
+            <Input
+              id="auth-register-password"
+              placeholder="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </Field>
+          <Field label="University">
+            <Select
+              value={universityId}
+              onValueChange={setUniversityId}
+              options={UNIVERSITIES.map((item) => ({ value: item.id, label: item.name }))}
+            />
+          </Field>
+          <Field label="Dorm">
+            <Select
+              value={dormName}
+              onValueChange={setDormName}
+              options={[{ value: "", label: "Select dorm" }, ...dormOptions]}
+            />
+          </Field>
           <Button disabled={loading} className="w-full" onClick={handleSubmit}>
             Create account
           </Button>

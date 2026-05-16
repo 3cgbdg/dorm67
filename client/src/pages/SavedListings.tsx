@@ -3,7 +3,7 @@ import { collection, doc, getDoc, onSnapshot, orderBy, query } from "firebase/fi
 import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { Bookmark } from "lucide-react";
-import { EmptyState } from "@/components/EmptyState";
+import { EmptyState } from "@/components/data/EmptyState";
 import { ListingCard } from "@/components/ListingCard";
 import { Button } from "@/components/ui/button";
 import type { Listing } from "@/types";
