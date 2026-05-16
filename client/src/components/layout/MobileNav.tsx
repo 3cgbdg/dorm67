@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Home, MessageCircle, Plus, ShoppingBag, User } from "lucide-react";
 import { UnreadDot } from "@/components/feature/UnreadDot";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
+import { useGlobalSearch } from "@/components/layout/global-search-context";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetPortal, SheetOverlay } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ const tabClass =
 export function MobileNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { open: openGlobalSearch } = useGlobalSearch();
   const unreadCount = useUnreadCount();
   const [sheetOpen, setSheetOpen] = useState(false);
   const path = location.pathname;
@@ -32,8 +34,16 @@ export function MobileNav() {
       setSheetOpen(false);
       navigate(to);
     };
+    const searchCampus = {
+      label: "Search campus",
+      onClick: () => {
+        setSheetOpen(false);
+        openGlobalSearch();
+      },
+    };
     if (path.startsWith("/feed") || path === "/")
       return [
+        searchCampus,
         { label: "Post announcement", onClick: () => go("/create-announcement") },
         { label: "Sell item", onClick: () => go("/create-listing") },
         { label: "Find people", onClick: () => go("/discover") },
@@ -41,26 +51,30 @@ export function MobileNav() {
       ];
     if (path.startsWith("/marketplace"))
       return [
+        searchCampus,
         { label: "Sell item", onClick: () => go("/create-listing") },
         { label: "AI tools", onClick: () => go("/ai-tools") },
       ];
     if (path.startsWith("/chats"))
       return [
+        searchCampus,
         { label: "New message", onClick: () => go("/discover") },
         { label: "AI tools", onClick: () => go("/ai-tools") },
       ];
     if (path.startsWith("/profile"))
       return [
+        searchCampus,
         { label: "Edit profile", onClick: () => go("/edit-profile") },
         { label: "AI tools", onClick: () => go("/ai-tools") },
       ];
     return [
+      searchCampus,
       { label: "Post announcement", onClick: () => go("/create-announcement") },
       { label: "Sell item", onClick: () => go("/create-listing") },
       { label: "Find people", onClick: () => go("/discover") },
       { label: "Ask AI", onClick: () => go("/ai-assistant") },
     ];
-  }, [path, navigate]);
+  }, [path, navigate, openGlobalSearch]);
 
   return (
     <>

@@ -5,6 +5,7 @@ import { auth, db } from "@/lib/firebase";
 import { handleAppError } from "@/lib/utils";
 import {
   tarasDocxDownloadUrl,
+  tarasFetchJob,
   tarasFetchReportJson,
   tarasGenerate,
   tarasRefine,
@@ -161,22 +162,60 @@ export function StepPreview({
 
   useEffect(() => {
     if (!localJobId) return;
-    const ref = doc(db, "aiTarasJobs", userId, "jobs", localJobId);
-    const unsub = onSnapshot(ref, (snap) => {
-      const d = snap.data();
-      setStatus(d?.status as string | undefined);
-      const p = d?.progress as { done?: number; total?: number } | undefined;
-      if (p && typeof p.done === "number" && typeof p.total === "number") {
-        setSectionProgress({ done: p.done, total: p.total });
-      } else {
-        setSectionProgress(null);
+    const currentUid = auth.currentUser?.uid;
+    if (!currentUid) {
+      setError("Session expired. Please sign in again.");
+      return;
+    }
+    const ref = doc(db, "aiTarasJobs", currentUid, "jobs", localJobId);
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
+        const d = snap.data();
+        setStatus(d?.status as string | undefined);
+        const p = d?.progress as { done?: number; total?: number } | undefined;
+        if (p && typeof p.done === "number" && typeof p.total === "number") {
+          setSectionProgress({ done: p.done, total: p.total });
+        } else {
+          setSectionProgress(null);
+        }
+        setJobWarning(typeof d?.warning === "string" ? d.warning : null);
+        setError((d?.error as string) || null);
+        setRevisions(normalizeRevisions(d?.revisions));
+        const lr = d?.latestRevision;
+        setLatestRevSnap(typeof lr === "number" ? lr : Number(lr) || 0);
+      },
+      (err) => {
+        // Prevent uncaught FirebaseError from crashing preview flow.
+        console.error("Taras job snapshot failed:", err);
+        if (err.code === "permission-denied") {
+          setError("Missing Firestore permissions for live job updates. Falling back to API status.");
+        } else {
+          setError(err.message || "Live status subscription failed.");
+        }
+        // Best-effort fallback: pull latest snapshot via server API.
+        void (async () => {
+          try {
+            const d = await tarasFetchJob(localJobId);
+            setStatus(d?.status as string | undefined);
+            const p = d?.progress as { done?: number; total?: number } | undefined;
+            if (p && typeof p.done === "number" && typeof p.total === "number") {
+              setSectionProgress({ done: p.done, total: p.total });
+            } else {
+              setSectionProgress(null);
+            }
+            setJobWarning(typeof d?.warning === "string" ? d.warning : null);
+            const apiErr = typeof d?.error === "string" ? d.error : null;
+            if (apiErr) setError(apiErr);
+            setRevisions(normalizeRevisions(d?.revisions));
+            const lr = d?.latestRevision;
+            setLatestRevSnap(typeof lr === "number" ? lr : Number(lr) || 0);
+          } catch {
+            /* ignore fallback failures; UI already has actionable error */
+          }
+        })();
       }
-      setJobWarning(typeof d?.warning === "string" ? d.warning : null);
-      setError((d?.error as string) || null);
-      setRevisions(normalizeRevisions(d?.revisions));
-      const lr = d?.latestRevision;
-      setLatestRevSnap(typeof lr === "number" ? lr : Number(lr) || 0);
-    });
+    );
     return () => unsub();
   }, [localJobId, userId]);
 

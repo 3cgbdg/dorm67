@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { searchUsers, findOrCreateDirectConversation } from "@/lib/firestore";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,34 @@ import { toast } from "sonner";
 import { handleAppError } from "@/lib/utils";
 
 export function DiscoverPage() {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlQ = searchParams.get("q") ?? "";
+  const [searchTerm, setSearchTerm] = useState(urlQ);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const currentUser = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setSearchTerm(urlQ);
+  }, [urlQ]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const trimmed = searchTerm.trim();
+          if (trimmed) next.set("q", trimmed);
+          else next.delete("q");
+          if (next.toString() === prev.toString()) return prev;
+          return next;
+        },
+        { replace: true }
+      );
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [searchTerm, setSearchParams]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
@@ -30,6 +53,9 @@ export function DiscoverPage() {
         }
       } else if (searchTerm.length === 0) {
         setUsers([]);
+      } else {
+        setUsers([]);
+        setLoading(false);
       }
     }, 500);
 

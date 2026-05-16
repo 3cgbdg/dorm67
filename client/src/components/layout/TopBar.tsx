@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useGlobalSearch } from "@/components/layout/global-search-context";
 import { Bell, Moon, Search, Sun } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { UserAvatar } from "@/components/ui/avatar";
@@ -21,6 +22,7 @@ import { NotificationsPeek } from "@/components/layout/notifications-peek";
 
 export function TopBar() {
   const navigate = useNavigate();
+  const { open: openGlobalSearch } = useGlobalSearch();
   const profile = useAuthStore((s) => s.profile);
   const { title, description } = usePageShell();
   const theme = useUiStore((s) => s.theme);
@@ -35,15 +37,21 @@ export function TopBar() {
           {description ? <p className="truncate text-xs text-ink-soft">{description}</p> : null}
         </div>
         <div className="hidden max-w-md flex-1 md:block">
-          <div className="relative">
+          <button
+            type="button"
+            onClick={() => openGlobalSearch()}
+            className="relative w-full text-left"
+            aria-label="Open search"
+          >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
             <Input
               readOnly
-              placeholder="Search… (coming soon)"
-              className="cursor-default bg-surface-2/50 pl-9"
-              aria-label="Search (coming soon)"
+              tabIndex={-1}
+              placeholder="Search campus… (⌘K)"
+              className="pointer-events-none cursor-default bg-surface-2/50 pl-9"
+              aria-hidden
             />
-          </div>
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <button

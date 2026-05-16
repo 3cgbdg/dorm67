@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { toast } from "sonner";
@@ -12,18 +13,42 @@ import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { fadeUpVariants, staggerContainerVariants } from "@/lib/motion";
+import { haystackIncludesAllTokens, searchTokens } from "@/lib/searchText";
 import type { Announcement } from "@/types";
 
 export function FeedPage() {
   const reduceMotion = useReducedMotion();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlQ = searchParams.get("q") ?? "";
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(urlQ);
   const [filter, setFilter] = useState<"all" | "official" | "students">("all");
 
   const onPull = useCallback(async () => {
     await new Promise((r) => setTimeout(r, 450));
     toast.success("Feed refreshed");
   }, []);
+
+  useEffect(() => {
+    setSearch(urlQ);
+  }, [urlQ]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const trimmed = search.trim();
+          if (trimmed) next.set("q", trimmed);
+          else next.delete("q");
+          if (next.toString() === prev.toString()) return prev;
+          return next;
+        },
+        { replace: true }
+      );
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [search, setSearchParams]);
 
   useEffect(() => {
     const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
@@ -46,8 +71,10 @@ export function FeedPage() {
   }, []);
 
   const filtered = useMemo(() => {
+    const tokens = searchTokens(search);
     return announcements.filter((item) => {
-      const matchesSearch = item.title.toLowerCase().includes(search.toLowerCase());
+      const hay = [item.title, item.body, item.userName].filter(Boolean).join(" ");
+      const matchesSearch = haystackIncludesAllTokens(hay, tokens);
       const matchesFilter =
         filter === "all" ||
         (filter === "official" && item.isOfficial) ||

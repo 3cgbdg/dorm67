@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import { toast } from "sonner";
 import { PackageSearch, SlidersHorizontal } from "lucide-react";
 import { db } from "@/lib/firebase";
+import { haystackIncludesAllTokens, searchTokens } from "@/lib/searchText";
 import { EmptyState } from "@/components/data/EmptyState";
 import { ListingCard } from "@/components/ListingCard";
 import { PullRefreshChrome } from "@/components/layout/PullRefreshChrome";
@@ -28,11 +30,34 @@ const SORTS: { value: string; label: string }[] = [
 ];
 
 export function MarketplacePage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlQ = searchParams.get("q") ?? "";
   const [listings, setListings] = useState<Listing[]>([]);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(urlQ);
   const [sort, setSort] = useState("newest");
   const [category, setCategory] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    setSearch(urlQ);
+  }, [urlQ]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          const trimmed = search.trim();
+          if (trimmed) next.set("q", trimmed);
+          else next.delete("q");
+          if (next.toString() === prev.toString()) return prev;
+          return next;
+        },
+        { replace: true }
+      );
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [search, setSearchParams]);
 
   useEffect(() => {
     const q = query(collection(db, "listings"), orderBy("createdAt", "desc"));
@@ -42,8 +67,10 @@ export function MarketplacePage() {
   }, []);
 
   const filtered = useMemo(() => {
+    const tokens = searchTokens(search);
     const matches = listings.filter((item) => {
-      const searchMatch = item.title.toLowerCase().includes(search.toLowerCase());
+      const hay = [item.title, item.description, item.category, item.userName].filter(Boolean).join(" ");
+      const searchMatch = haystackIncludesAllTokens(hay, tokens);
       const categoryMatch =
         category === "all" ||
         (category === "free" ? item.price === 0 : item.category === category);
