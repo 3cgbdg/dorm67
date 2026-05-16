@@ -11,7 +11,7 @@ import { checkTarasRateLimit, consumeAiTarasQuota } from "../services/aiUsage.js
 import { analyzeTemplateFromBuffers } from "../services/taras/generate.js";
 import { TemplateStyleSchema } from "../services/taras/outline.js";
 import { TarasLanguageSchema, sanitizeInputs } from "../services/taras/sanitizeInputs.js";
-import { deleteFilesWithPrefix, downloadBytes, tarasBucket } from "../services/taras/storage.js";
+import { deleteFilesWithPrefix, downloadBytes, listPathsWithPrefix, uploadBytes } from "../services/taras/storage.js";
 import { assertJobDocSize } from "../services/taras/jobDoc.js";
 import { REPORT_SCHEMA_VERSION } from "../services/taras/schema.js";
 import { TARAS_PROMPT_VERSION } from "../services/taras/constants.js";
@@ -87,11 +87,7 @@ aiTarasRouter.post("/upload", upload.array("files", 3), async (req: AuthRequest,
         .toBuffer();
       const ext = detected.ext === "png" ? "png" : "jpg";
       const path = `aiTaras/${userId}/drafts/${draftId}/${i}.${ext}`;
-      await tarasBucket().file(path).save(resized, {
-        contentType: detected.mime,
-        resumable: false,
-        metadata: { cacheControl: "private, max-age=0" },
-      });
+      await uploadBytes(path, resized, detected.mime);
       paths.push(path);
     }
     res.json({ draftId, paths });
@@ -121,18 +117,16 @@ aiTarasRouter.post("/template-analyze", async (req: AuthRequest, res) => {
       return;
     }
 
-    const [draftFiles] = await tarasBucket().getFiles({
-      prefix: `aiTaras/${userId}/drafts/${draftId}/`,
-    });
-    if (!draftFiles.length) {
+    const draftKeys = await listPathsWithPrefix(`aiTaras/${userId}/drafts/${draftId}/`);
+    if (!draftKeys.length) {
       res.status(400).json({ error: "Draft not found or empty" });
       return;
     }
 
     const buffers: Buffer[] = [];
     const mediaTypes: string[] = [];
-    for (const file of draftFiles) {
-      const [buf] = await file.download();
+    for (const key of draftKeys) {
+      const buf = await downloadBytes(key);
       const ft = await fileTypeFromBuffer(buf);
       if (!ft?.mime.startsWith("image/")) continue;
       buffers.push(buf);

@@ -1,40 +1,38 @@
 import { Router } from "express";
-import { v2 as cloudinary } from "cloudinary";
+import { fileTypeFromBuffer } from "file-type";
 import { authMiddleware } from "../middleware/auth.js";
-import { env } from "../config.js";
-
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: env.CLOUDINARY_CLOUD_NAME,
-  api_key: env.CLOUDINARY_API_KEY,
-  api_secret: env.CLOUDINARY_API_SECRET,
-});
+import { publicUrlFor, uploadBytes } from "../services/taras/storage.js";
 
 export const uploadRouter = Router();
 
 uploadRouter.post("/", authMiddleware, async (req, res) => {
   try {
-    if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
-      res.status(500).json({ error: "Cloudinary is not configured on the server" });
-      return;
-    }
-
     const { image } = req.body; // Base64 string "data:image/jpeg;base64,..."
     if (!image) {
       res.status(400).json({ error: "Missing image" });
       return;
     }
 
-    // Upload directly to Cloudinary
-    const uploadResponse = await cloudinary.uploader.upload(image, {
-      folder: "dorm67", // Organize images in a folder
-      resource_type: "auto",
-    });
+    const m = String(image).match(/^data:(.+);base64,(.+)$/);
+    if (!m) {
+      res.status(400).json({ error: "Invalid image payload" });
+      return;
+    }
+    const base64 = m[2];
+    const buf = Buffer.from(base64, "base64");
+    const ft = await fileTypeFromBuffer(buf);
+    if (!ft?.mime.startsWith("image/")) {
+      res.status(400).json({ error: "Only image uploads are allowed" });
+      return;
+    }
+    const ext = ft.ext === "png" ? "png" : ft.ext === "webp" ? "webp" : "jpg";
+    const key = `uploads/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+    await uploadBytes(key, buf, ft.mime);
 
-    // Return the Cloudinary public URL
-    res.json({ url: uploadResponse.secure_url });
+    // Return a public CDN URL (or bucket public base URL)
+    res.json({ url: publicUrlFor(key) });
   } catch (error) {
-    console.error("Cloudinary upload error:", error);
-    res.status(500).json({ error: "Failed to upload image to cloud" });
+    console.error("S3 upload error:", error);
+    res.status(500).json({ error: "Failed to upload image to storage" });
   }
 });

@@ -18,7 +18,6 @@
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
 - `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 - `VITE_API_URL` (default: `http://localhost:8080`)
@@ -32,11 +31,16 @@
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY` (quoted and escaped with `\\n` in env)
   - Example: `FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"`
+- `S3_REGION`
+- `S3_BUCKET`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_PUBLIC_BASE_URL`
+- `S3_ENDPOINT` (optional for S3-compatible providers)
 
 ## Firebase config files
 
 - Firestore rules: `firestore.rules`
-- Storage rules: `storage.rules`
 - Firebase config: `firebase.json`
 - Project alias: `.firebaserc`
 
