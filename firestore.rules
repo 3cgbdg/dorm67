@@ -72,5 +72,26 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
     }
+
+    // Taras lab reports — server writes only; client may read own job summaries
+    match /aiTarasJobs/{userId} {
+      allow read, write: if false;
+      match /jobs/{jobId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+    }
+
+    match /aiTarasUsage/{docId} {
+      allow read, write: if false;
+    }
+
+    match /aiTarasRate/{docId} {
+      allow read, write: if false;
+    }
+
+    match /aiTarasIdempotency/{docId} {
+      allow read, write: if false;
+    }
   }
 }

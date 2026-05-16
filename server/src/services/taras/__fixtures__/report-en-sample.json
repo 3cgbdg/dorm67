@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "language": "en",
+  "metadata": {
+    "title": "Laboratory Report 2",
+    "subject": "Chemistry",
+    "labNumber": "2",
+    "topic": "Titration",
+    "studentName": "Jane Doe",
+    "group": "CH-10",
+    "date": "2026-05-16"
+  },
+  "sections": [
+    {
+      "heading": "Objective",
+      "paragraphs": ["Determine concentration using titration."]
+    },
+    {
+      "heading": "Data",
+      "bullets": ["Sample A: 12.4 ml", "Sample B: 11.9 ml"]
+    }
+  ],
+  "conclusions": ["Results are consistent with expected stoichiometry."]
+}

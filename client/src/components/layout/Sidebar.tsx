@@ -3,8 +3,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import {
   Bell,
-  Bot,
   Home,
+  Sparkles,
   LogOut,
   MessageSquare,
   PlusSquare,
@@ -33,7 +33,7 @@ const browse: NavItem[] = [
 
 const you: NavItem[] = [
   { to: "/chats", label: "Chats", icon: MessageSquare },
-  { to: "/ai-assistant", label: "AI Help", icon: Bot },
+  { to: "/ai-tools", label: "AI Tools", icon: Sparkles },
   { to: "/notifications", label: "Alerts", icon: Bell },
 ];
 

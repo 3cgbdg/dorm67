@@ -23,6 +23,7 @@ export function MobileNav() {
     if (path.startsWith("/create-")) return false;
     if (path === "/edit-profile") return false;
     if (path === "/ai-assistant") return false;
+    if (path.startsWith("/ai-tools")) return false;
     return true;
   }, [path]);
 
@@ -36,22 +37,22 @@ export function MobileNav() {
         { label: "Post announcement", onClick: () => go("/create-announcement") },
         { label: "Sell item", onClick: () => go("/create-listing") },
         { label: "Find people", onClick: () => go("/discover") },
-        { label: "Ask AI", onClick: () => go("/ai-assistant") },
+        { label: "AI tools", onClick: () => go("/ai-tools") },
       ];
     if (path.startsWith("/marketplace"))
       return [
         { label: "Sell item", onClick: () => go("/create-listing") },
-        { label: "Ask AI", onClick: () => go("/ai-assistant") },
+        { label: "AI tools", onClick: () => go("/ai-tools") },
       ];
     if (path.startsWith("/chats"))
       return [
         { label: "New message", onClick: () => go("/discover") },
-        { label: "Ask AI", onClick: () => go("/ai-assistant") },
+        { label: "AI tools", onClick: () => go("/ai-tools") },
       ];
     if (path.startsWith("/profile"))
       return [
         { label: "Edit profile", onClick: () => go("/edit-profile") },
-        { label: "Ask AI", onClick: () => go("/ai-assistant") },
+        { label: "AI tools", onClick: () => go("/ai-tools") },
       ];
     return [
       { label: "Post announcement", onClick: () => go("/create-announcement") },

@@ -20,6 +20,8 @@ import { EditProfilePage } from "@/pages/EditProfile";
 import { NotificationsPage } from "@/pages/Notifications";
 import { SavedListingsPage } from "@/pages/SavedListings";
 import { AiAssistantPage } from "@/pages/AiAssistant";
+import { AiToolsPage } from "@/pages/AiTools";
+import { TarasPage } from "@/pages/ai/Taras";
 import { DiscoverPage } from "@/pages/Discover";
 
 export const router = createBrowserRouter([
@@ -49,6 +51,8 @@ export const router = createBrowserRouter([
           { path: "notifications", element: <NotificationsPage /> },
           { path: "saved-listings", element: <SavedListingsPage /> },
           { path: "ai-assistant", element: <AiAssistantPage /> },
+          { path: "ai-tools", element: <AiToolsPage /> },
+          { path: "ai-tools/taras", element: <TarasPage /> },
           { path: "discover", element: <DiscoverPage /> },
         ],
       },

@@ -10,5 +10,9 @@ service firebase.storage {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
+
+    match /aiTaras/{userId}/{allPaths=**} {
+      allow read, write: if false;
+    }
   }
 }
