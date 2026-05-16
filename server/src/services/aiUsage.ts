@@ -53,9 +53,19 @@ export function consumeAiChatQuota(userId: string) {
 const DAILY_TARAS_COST_LIMIT = 5;
 const MONTHLY_TARAS_COST_LIMIT = 50;
 const TARAS_RATE_PER_MINUTE = 3;
+const WEEKLY_TARAS_GENERATE_LIMIT = 1;
 
 function getUtcMonthKey() {
   return new Date().toISOString().slice(0, 7);
+}
+
+function getUtcWeekKey() {
+  const now = new Date();
+  const utcDay = now.getUTCDay(); // 0..6 (Sun..Sat)
+  const deltaToMonday = (utcDay + 6) % 7;
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  monday.setUTCDate(monday.getUTCDate() - deltaToMonday);
+  return monday.toISOString().slice(0, 10); // Week bucket key by Monday date
 }
 
 function getMinuteKey() {
@@ -144,6 +154,48 @@ export async function consumeAiTarasQuota(
       allowed: true,
       remainingDaily: Math.max(DAILY_TARAS_COST_LIMIT - nextDaily, 0),
       remainingMonthly: Math.max(MONTHLY_TARAS_COST_LIMIT - nextMonthly, 0),
+    };
+  });
+}
+
+export async function consumeAiTarasWeeklyGenerateQuota(
+  userId: string
+): Promise<{ allowed: boolean; usedWeekly: number; remainingWeekly: number; limitWeekly: number }> {
+  const week = getUtcWeekKey();
+  const ref = admin.firestore().collection("aiTarasUsage").doc(`weekly_generate_${userId}_${week}`);
+
+  return admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const used = snap.exists ? Number(snap.data()?.count || 0) : 0;
+    if (used >= WEEKLY_TARAS_GENERATE_LIMIT) {
+      return {
+        allowed: false,
+        usedWeekly: used,
+        remainingWeekly: 0,
+        limitWeekly: WEEKLY_TARAS_GENERATE_LIMIT,
+      };
+    }
+
+    const next = used + 1;
+    const ts = admin.firestore.FieldValue.serverTimestamp();
+    tx.set(
+      ref,
+      {
+        userId,
+        kind: "weekly_generate",
+        week,
+        count: next,
+        updatedAt: ts,
+        createdAt: snap.exists ? snap.data()?.createdAt || ts : ts,
+      },
+      { merge: true }
+    );
+
+    return {
+      allowed: true,
+      usedWeekly: next,
+      remainingWeekly: Math.max(WEEKLY_TARAS_GENERATE_LIMIT - next, 0),
+      limitWeekly: WEEKLY_TARAS_GENERATE_LIMIT,
     };
   });
 }

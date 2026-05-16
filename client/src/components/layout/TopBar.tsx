@@ -19,6 +19,9 @@ import {
 import { IconButton } from "@/components/ui/icon-button";
 import { AppDrawer, AppDrawerContent, AppDrawerHeader, AppDrawerOverlay, AppDrawerPortal, AppDrawerTitle } from "@/components/ui/drawer";
 import { NotificationsPeek } from "@/components/layout/notifications-peek";
+import { useUnreadCount } from "@/hooks/useUnreadCount";
+import { UnreadDot } from "@/components/feature/UnreadDot";
+import { markNotificationsRead } from "@/lib/firestore";
 
 export function TopBar() {
   const navigate = useNavigate();
@@ -28,6 +31,8 @@ export function TopBar() {
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const [notifOpen, setNotifOpen] = useState(false);
+  const unreadCount = useUnreadCount();
+  const user = useAuthStore((s) => s.user);
 
   return (
     <>
@@ -57,10 +62,11 @@ export function TopBar() {
           <button
             type="button"
             onClick={() => setNotifOpen(true)}
-            className="rounded-md p-2 hover:bg-surface-2 focus:outline-none focus:ring-2 focus:ring-brand-ring"
+            className="relative rounded-md p-2 hover:bg-surface-2 focus:outline-none focus:ring-2 focus:ring-brand-ring"
             aria-label="Open notifications"
           >
             <Bell className="h-4 w-4" />
+            <UnreadDot count={unreadCount} className="-right-1 -top-1" />
           </button>
           <IconButton
             type="button"
@@ -106,16 +112,30 @@ export function TopBar() {
           <AppDrawerContent className="p-0">
             <AppDrawerHeader>
               <AppDrawerTitle>Notifications</AppDrawerTitle>
-              <Link
-                to="/notifications"
-                className="text-xs font-medium text-brand hover:underline"
-                onClick={() => setNotifOpen(false)}
-              >
-                View all
-              </Link>
+              <div className="flex items-center gap-3 text-xs font-medium">
+                {unreadCount > 0 ? (
+                  <button
+                    type="button"
+                    className="text-brand hover:underline"
+                    onClick={async () => {
+                      if (!user) return;
+                      await markNotificationsRead(user.uid);
+                    }}
+                  >
+                    Mark all as read
+                  </button>
+                ) : null}
+                <Link
+                  to="/notifications"
+                  className="text-brand hover:underline"
+                  onClick={() => setNotifOpen(false)}
+                >
+                  View all
+                </Link>
+              </div>
             </AppDrawerHeader>
             <div className="min-h-0 flex-1 overflow-hidden p-4">
-              <NotificationsPeek />
+              <NotificationsPeek onItemClick={() => setNotifOpen(false)} />
             </div>
           </AppDrawerContent>
         </AppDrawerPortal>

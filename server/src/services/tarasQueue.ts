@@ -25,6 +25,13 @@ function isFirestoreNotFound(err: unknown): boolean {
   return Boolean(err && typeof err === "object" && (err as { code?: unknown }).code === 5);
 }
 
+function isFirestoreFailedPrecondition(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const code = (err as { code?: unknown }).code;
+  const msg = String((err as { message?: unknown }).message || "").toUpperCase();
+  return code === 9 || msg.includes("FAILED_PRECONDITION");
+}
+
 function bucketPathForJob(userId: string, jobId: string, kind: "report" | "docx", rev: number) {
   const ext = kind === "report" ? "json" : "docx";
   return `aiTaras/${userId}/jobs/${jobId}/${kind}-v${rev}.${ext}`;
@@ -309,45 +316,55 @@ export async function startTarasQueueListenerAsync(): Promise<void> {
 
   setInterval(() => {
     void (async () => {
-      const stuck = await admin
-        .firestore()
-        .collectionGroup("jobs")
-        .where("status", "in", [
-          "generating_outline",
-          "generating_sections",
-          "generating_full",
-          "rendering",
-          "refining",
-        ])
-        .limit(25)
-        .get();
+      try {
+        const stuck = await admin
+          .firestore()
+          .collectionGroup("jobs")
+          .where("status", "in", [
+            "generating_outline",
+            "generating_sections",
+            "generating_full",
+            "rendering",
+            "refining",
+          ])
+          .limit(25)
+          .get();
 
-      for (const doc of stuck.docs) {
-        try {
-          const d = doc.data() as Record<string, unknown>;
-          const lease = d.lease as { expiresAt?: FirebaseFirestore.Timestamp } | undefined;
-          const exp = lease?.expiresAt?.toMillis?.() ?? 0;
-          if (exp > Date.now()) continue;
-          const retries = Number(d.retryCount || 0);
-          if (retries >= 3) {
+        for (const doc of stuck.docs) {
+          try {
+            const d = doc.data() as Record<string, unknown>;
+            const lease = d.lease as { expiresAt?: FirebaseFirestore.Timestamp } | undefined;
+            const exp = lease?.expiresAt?.toMillis?.() ?? 0;
+            if (exp > Date.now()) continue;
+            const retries = Number(d.retryCount || 0);
+            if (retries >= 3) {
+              await doc.ref.update({
+                status: "failed",
+                error: "Job stalled after multiple retries",
+                lease: admin.firestore.FieldValue.delete(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              });
+              continue;
+            }
+            const prevStatus = d.status as string;
             await doc.ref.update({
-              status: "failed",
-              error: "Job stalled after multiple retries",
+              status: prevStatus === "refining" ? "refining" : "queued",
               lease: admin.firestore.FieldValue.delete(),
+              retryCount: retries + 1,
               updatedAt: admin.firestore.FieldValue.serverTimestamp(),
             });
-            continue;
+          } catch (err) {
+            if (!isFirestoreNotFound(err)) throw err;
           }
-          const prevStatus = d.status as string;
-          await doc.ref.update({
-            status: prevStatus === "refining" ? "refining" : "queued",
-            lease: admin.firestore.FieldValue.delete(),
-            retryCount: retries + 1,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-        } catch (err) {
-          if (!isFirestoreNotFound(err)) throw err;
         }
+      } catch (err) {
+        if (isFirestoreFailedPrecondition(err)) {
+          // eslint-disable-next-line no-console
+          console.warn("Taras stalled-jobs poll waiting on Firestore index build...");
+          return;
+        }
+        // eslint-disable-next-line no-console
+        console.error("Taras stalled-jobs poll error:", err);
       }
     })();
   }, 60_000);

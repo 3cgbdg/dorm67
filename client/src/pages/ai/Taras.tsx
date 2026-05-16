@@ -40,6 +40,36 @@ const QUANT_LAB_HINTS = [
   "розрах",
 ];
 
+const TARAS_DRAFT_VERSION = 1;
+
+type TarasLocalDraft = {
+  version: number;
+  step: TarasWizardStep;
+  language: TarasLanguage;
+  metadata: MetadataState;
+  inputs: TarasInputs;
+  useMeasurements: boolean;
+  templateStyle: TemplateStyle | null;
+  pastedTemplateText: string;
+  updatedAt: number;
+};
+
+function getTarasDraftKey(uid: string) {
+  return `taras:wizard:${uid}`;
+}
+
+function parseTarasDraft(raw: string | null): TarasLocalDraft | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<TarasLocalDraft>;
+    if (!parsed || parsed.version !== TARAS_DRAFT_VERSION) return null;
+    if (!parsed.metadata || !parsed.inputs || !parsed.step || !parsed.language) return null;
+    return parsed as TarasLocalDraft;
+  } catch {
+    return null;
+  }
+}
+
 export function TarasPage() {
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
@@ -71,6 +101,7 @@ export function TarasPage() {
   const [useMeasurements, setUseMeasurements] = useState(true);
   const [autoParsing, setAutoParsing] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(jobIdFromUrl);
+  const [didRestoreDraft, setDidRestoreDraft] = useState(false);
 
   // Step 1 is complete only after user explicitly continues (which prepares draftId + templateStyle).
   const templateStepComplete = Boolean(draftId && templateStyle);
@@ -120,6 +151,63 @@ export function TarasPage() {
       setStep("preview");
     }
   }, [jobIdFromUrl]);
+
+  useEffect(() => {
+    if (!user || didRestoreDraft) return;
+    if (jobIdFromUrl) {
+      setDidRestoreDraft(true);
+      return;
+    }
+    const draft = parseTarasDraft(localStorage.getItem(getTarasDraftKey(user.uid)));
+    if (!draft) {
+      setDidRestoreDraft(true);
+      return;
+    }
+
+    setLanguage(draft.language);
+    setMetadata(draft.metadata);
+    setInputs(draft.inputs);
+    setUseMeasurements(Boolean(draft.useMeasurements));
+    setTemplateStyle(draft.templateStyle ?? null);
+    setPastedTemplateText(draft.pastedTemplateText || "");
+    setStep(draft.step === "preview" ? "content" : draft.step);
+    setDidRestoreDraft(true);
+    toast.message("Restored your unsaved Taras draft");
+  }, [didRestoreDraft, jobIdFromUrl, user]);
+
+  useEffect(() => {
+    if (!user || !didRestoreDraft) return;
+    if (activeJobId) return;
+    if (step === "template") return;
+
+    const t = window.setTimeout(() => {
+      const payload: TarasLocalDraft = {
+        version: TARAS_DRAFT_VERSION,
+        step,
+        language,
+        metadata,
+        inputs,
+        useMeasurements,
+        templateStyle,
+        pastedTemplateText,
+        updatedAt: Date.now(),
+      };
+      localStorage.setItem(getTarasDraftKey(user.uid), JSON.stringify(payload));
+    }, 800);
+
+    return () => window.clearTimeout(t);
+  }, [
+    activeJobId,
+    didRestoreDraft,
+    inputs,
+    language,
+    metadata,
+    pastedTemplateText,
+    step,
+    templateStyle,
+    useMeasurements,
+    user,
+  ]);
 
   function goTo(s: TarasWizardStep) {
     if (!stepEnabled[s]) return;
@@ -186,6 +274,7 @@ export function TarasPage() {
   }
 
   function startNewReport() {
+    if (user) localStorage.removeItem(getTarasDraftKey(user.uid));
     setSearchParams({});
     setActiveJobId(null);
     setStep("template");
@@ -347,6 +436,7 @@ export function TarasPage() {
               onJobCreated={(id) => {
                 setActiveJobId(id);
                 setSearchParams({ jobId: id });
+                localStorage.removeItem(getTarasDraftKey(user.uid));
               }}
               onBack={() => goTo("content")}
             />

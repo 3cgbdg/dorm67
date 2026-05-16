@@ -92,7 +92,19 @@ service cloud.firestore {
     match /notifications/{userId} {
       allow read: if isOwner(userId);
       match /items/{itemId} {
-        allow read, write: if isOwner(userId);
+        allow read: if isOwner(userId);
+        allow create: if isAuthenticated() &&
+          request.resource.data.keys().hasOnly([
+            'title', 'body', 'type', 'refId', 'isRead', 'createdAt'
+          ]) &&
+          request.resource.data.title is string &&
+          request.resource.data.body is string &&
+          request.resource.data.type is string &&
+          request.resource.data.refId is string &&
+          request.resource.data.isRead == false &&
+          request.resource.data.createdAt == request.time &&
+          request.resource.data.type in ['announcement', 'message'];
+        allow update, delete: if isOwner(userId);
       }
     }
 

@@ -39,7 +39,17 @@ export function Select({ value, onValueChange, options, className, placeholder =
           sideOffset={4}
         >
           <SelectPrimitive.Viewport className="p-1">
-            {options.map((option) => (
+            {options.map((option) => {
+              if (option.value === "") {
+                if (import.meta.env.DEV) {
+                  console.warn(
+                    "[Select] Radix Select.Item cannot use value=\"\". Use a non-empty sentinel (see DORM_SELECT_PLACEHOLDER).",
+                    option.label
+                  );
+                }
+                return null;
+              }
+              return (
               <SelectPrimitive.Item
                 key={option.value}
                 value={option.value}
@@ -54,7 +64,8 @@ export function Select({ value, onValueChange, options, className, placeholder =
                 </span>
                 <SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
               </SelectPrimitive.Item>
-            ))}
+            );
+            })}
           </SelectPrimitive.Viewport>
         </SelectPrimitive.Content>
       </SelectPrimitive.Portal>

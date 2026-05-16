@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { timeAgo } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { markNotificationRead } from "@/lib/firestore";
 
 export type NotificationRow = {
   id: string;
@@ -16,12 +17,12 @@ export type NotificationRow = {
 function notifLink(item: NotificationRow): string {
   if (item.type === "announcement" && item.refId) return `/announcement/${item.refId}`;
   if (item.type === "message" && item.refId) return `/conversation/${item.refId}`;
-  return "#";
+  return "/notifications";
 }
 
 export function NotificationItem({ item }: { item: NotificationRow }) {
   return (
-    <Link to={notifLink(item)}>
+    <Link to={notifLink(item)} onClick={() => { void markNotificationRead(item.id); }}>
       <Card
         className={cn(
           "transition-colors hover:bg-surface-2/50",

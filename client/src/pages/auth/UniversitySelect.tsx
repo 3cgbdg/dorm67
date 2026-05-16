@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { doc, setDoc } from "firebase/firestore";
 import { toast } from "sonner";
 import { auth, db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
-import { DORMS, UNIVERSITIES } from "@/lib/constants";
+import { DORM_SELECT_PLACEHOLDER, DORMS, UNIVERSITIES } from "@/lib/constants";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,11 +24,19 @@ export function UniversitySelectPage() {
     [universityId]
   );
 
+  useEffect(() => {
+    setDormName("");
+  }, [universityId]);
+
   const handleSave = async () => {
     const user = auth.currentUser;
     if (!user) return;
     const university = UNIVERSITIES.find((item) => item.id === universityId);
     if (!university) return;
+    if (!dormName.trim()) {
+      toast.error("Choose a dorm");
+      return;
+    }
 
     await setDoc(
       doc(db, "users", user.uid),
@@ -63,9 +71,10 @@ export function UniversitySelectPage() {
           </Field>
           <Field label="Dorm">
             <Select
-              value={dormName}
-              onValueChange={setDormName}
-              options={[{ value: "", label: "Select dorm" }, ...dormOptions]}
+              value={dormName || DORM_SELECT_PLACEHOLDER}
+              onValueChange={(v) => setDormName(v === DORM_SELECT_PLACEHOLDER ? "" : v)}
+              options={[{ value: DORM_SELECT_PLACEHOLDER, label: "Select dorm" }, ...dormOptions]}
+              placeholder="Select dorm"
             />
           </Field>
           <Button className="w-full" onClick={handleSave}>

@@ -5,6 +5,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  type DocumentSnapshot,
   getDoc,
   getDocs,
   increment,
@@ -23,6 +24,8 @@ import {
 import { auth, db } from "@/lib/firebase";
 import { api } from "@/lib/api";
 
+type NotificationType = "announcement" | "message";
+
 function requireUser() {
   if (!auth.currentUser) throw new Error("Not authenticated");
   return auth.currentUser;
@@ -39,6 +42,24 @@ async function getUserProfileFast(userId: string) {
   } catch {
     return null;
   }
+}
+
+async function createUserNotification(input: {
+  userId: string;
+  title: string;
+  body: string;
+  type: NotificationType;
+  refId?: string;
+}) {
+  if (!input.userId) return;
+  await addDoc(collection(db, "notifications", input.userId, "items"), {
+    title: input.title,
+    body: input.body,
+    type: input.type,
+    refId: input.refId || "",
+    isRead: false,
+    createdAt: serverTimestamp(),
+  });
 }
 
 export async function createAnnouncement(input: {
@@ -66,9 +87,9 @@ export async function createAnnouncement(input: {
 export async function toggleAnnouncementLike(announcementId: string) {
   const user = requireUser();
   const announcementRef = doc(db, "announcements", announcementId);
-  await runTransaction(db, async (tx) => {
+  const didLike = await runTransaction(db, async (tx) => {
     const snap = await tx.get(announcementRef);
-    if (!snap.exists()) return;
+    if (!snap.exists()) return false;
     const data = snap.data();
     const likedBy: string[] = data.likedBy || [];
     
@@ -77,12 +98,33 @@ export async function toggleAnnouncementLike(announcementId: string) {
         likedBy: arrayRemove(user.uid),
         likesCount: increment(-1) 
       });
+      return false;
     } else {
       tx.update(announcementRef, { 
         likedBy: arrayUnion(user.uid),
         likesCount: increment(1) 
       });
+      return true;
     }
+  });
+
+  if (!didLike) return;
+  const [profile, announcementSnap] = await Promise.all([
+    getUserProfileFast(user.uid),
+    getDoc(announcementRef),
+  ]);
+  if (!announcementSnap.exists()) return;
+  const announcement = announcementSnap.data() as Record<string, unknown>;
+  const ownerId = typeof announcement.userId === "string" ? announcement.userId : "";
+  if (!ownerId || ownerId === user.uid) return;
+
+  const senderName = (profile?.fullName as string) || user.displayName || "Someone";
+  await createUserNotification({
+    userId: ownerId,
+    title: "New like",
+    body: `${senderName} liked your post`,
+    type: "announcement",
+    refId: announcementId,
   });
 }
 
@@ -108,6 +150,21 @@ export async function createAnnouncementComment(
   });
   batch.update(announcementRef, { commentsCount: increment(1) });
   await batch.commit();
+
+  const announcementSnap = await getDoc(announcementRef);
+  if (!announcementSnap.exists()) return;
+  const announcement = announcementSnap.data() as Record<string, unknown>;
+  const ownerId = typeof announcement.userId === "string" ? announcement.userId : "";
+  if (!ownerId || ownerId === user.uid) return;
+
+  const senderName = (profile?.fullName as string) || user.displayName || "Someone";
+  await createUserNotification({
+    userId: ownerId,
+    title: "New comment",
+    body: `${senderName} commented on your post`,
+    type: "announcement",
+    refId: announcementId,
+  });
 }
 
 export async function updateAnnouncementComment(
@@ -214,11 +271,55 @@ export async function deleteListingAndImages(listingId: string) {
   const listingRef = doc(db, "listings", listingId);
   const listingSnap = await getDoc(listingRef);
   if (!listingSnap.exists()) return;
-  const data = listingSnap.data();
   // Images are now stored on the local server via /api/upload
   // Since this is a student project, we can just let them stay or delete via a local endpoint if desired.
   // For now, we just skip deleting from storage.
   await deleteDoc(listingRef);
+}
+
+type ParticipantProfile = { fullName: string; avatarUrl?: string };
+
+function inferParticipantsFromKey(participantKey: unknown): string[] {
+  if (typeof participantKey !== "string" || !participantKey.includes("_")) return [];
+  const parts = participantKey.split("_").filter(Boolean);
+  if (parts.length < 3) return [];
+  const inferred = parts.slice(-2);
+  return inferred.length === 2 ? inferred : [];
+}
+
+async function repairConversationParticipants(
+  convRef: ReturnType<typeof doc>,
+  convSnap: DocumentSnapshot,
+  callerUid: string,
+  otherUid: string
+) {
+  const authUser = requireUser();
+  const data = convSnap.data() ?? {};
+  const ids: string[] = Array.isArray(data.participantIds) ? (data.participantIds as string[]) : [];
+  const hasBoth = ids.includes(callerUid) && ids.includes(otherUid);
+  if (hasBoth) return;
+
+  const [callerProfile, otherProfile] = await Promise.all([
+    getUserProfileFast(callerUid),
+    getUserProfileFast(otherUid),
+  ]);
+  const prevProfiles = (data.participantProfiles as Record<string, ParticipantProfile> | undefined) ?? {};
+
+  await updateDoc(convRef, {
+    participantIds: arrayUnion(callerUid, otherUid),
+    participantProfiles: {
+      ...prevProfiles,
+      [callerUid]: {
+        fullName:
+          (callerProfile?.fullName as string) || (callerUid === authUser.uid ? authUser.displayName : null) || "Student",
+        avatarUrl: (callerProfile?.avatarUrl as string) || "",
+      },
+      [otherUid]: {
+        fullName: (otherProfile?.fullName as string) || (otherUid === authUser.uid ? authUser.displayName : null) || "Student",
+        avatarUrl: (otherProfile?.avatarUrl as string) || "",
+      },
+    },
+  });
 }
 
 export async function findOrCreateConversation(listingId: string, sellerId: string) {
@@ -229,7 +330,11 @@ export async function findOrCreateConversation(listingId: string, sellerId: stri
   const existing = await getDocs(
     query(collection(db, "conversations"), where("participantKey", "==", participantKey), limit(1))
   );
-  if (!existing.empty) return existing.docs[0].id;
+  if (!existing.empty) {
+    const found = existing.docs[0];
+    await repairConversationParticipants(found.ref, found, user.uid, sellerId);
+    return found.id;
+  }
 
   // Denormalize participant profiles at write time to avoid N+1 reads
   const [myProfile, otherProfile] = await Promise.all([
@@ -245,6 +350,7 @@ export async function findOrCreateConversation(listingId: string, sellerId: stri
       [user.uid]: { fullName: myProfile?.fullName || user.displayName || "Student", avatarUrl: myProfile?.avatarUrl || "" },
       [sellerId]: { fullName: otherProfile?.fullName || "Student", avatarUrl: otherProfile?.avatarUrl || "" },
     },
+    unreadCounts: { [user.uid]: 0, [sellerId]: 0 },
     createdAt: serverTimestamp(),
     lastMessage: "",
     lastMessageAt: serverTimestamp(),
@@ -264,7 +370,11 @@ export async function findOrCreateDirectConversation(targetUserId: string) {
   const existing = await getDocs(
     query(collection(db, "conversations"), where("participantKey", "==", participantKey), limit(1))
   );
-  if (!existing.empty) return existing.docs[0].id;
+  if (!existing.empty) {
+    const found = existing.docs[0];
+    await repairConversationParticipants(found.ref, found, user.uid, targetUserId);
+    return found.id;
+  }
 
   // Denormalize participant profiles at write time to avoid N+1 reads
   const [myProfile, otherProfile] = await Promise.all([
@@ -280,6 +390,7 @@ export async function findOrCreateDirectConversation(targetUserId: string) {
       [user.uid]:    { fullName: myProfile?.fullName || user.displayName || "Student", avatarUrl: myProfile?.avatarUrl || "" },
       [targetUserId]: { fullName: otherProfile?.fullName || "Student", avatarUrl: otherProfile?.avatarUrl || "" },
     },
+    unreadCounts: { [user.uid]: 0, [targetUserId]: 0 },
     createdAt: serverTimestamp(),
     lastMessage: "",
     lastMessageAt: serverTimestamp(),
@@ -291,23 +402,65 @@ export async function sendMessage(conversationId: string, content: string) {
   const user = requireUser();
   const conversationRef = doc(db, "conversations", conversationId);
   const messageRef = doc(collection(db, "conversations", conversationId, "messages"));
-  const batch = writeBatch(db);
-  batch.set(messageRef, { senderId: user.uid, content, createdAt: serverTimestamp() });
-  batch.update(conversationRef, {
-    lastMessage: content,
-    lastMessageId: messageRef.id,
-    lastMessageAt: serverTimestamp(),
-    participantIds: arrayUnion(user.uid),
+  let recipientId = "";
+  let senderName = "Someone";
+
+  await runTransaction(db, async (tx) => {
+    const convSnap = await tx.get(conversationRef);
+    if (!convSnap.exists()) throw new Error("Conversation not found");
+
+    const data = convSnap.data() as Record<string, unknown>;
+    const raw = data.participantIds;
+    const existing = Array.isArray(raw) ? (raw as string[]).filter(Boolean) : [];
+    const inferred = inferParticipantsFromKey(data.participantKey);
+    const mergedIds = [...new Set([...existing, ...inferred, user.uid])];
+    const other = mergedIds.find((id) => id !== user.uid) || "";
+    recipientId = other;
+
+    const unreadCounts =
+      (data.unreadCounts as Record<string, number> | undefined) ?? {};
+    const nextUnread = { ...unreadCounts };
+    nextUnread[user.uid] = 0;
+    if (other) nextUnread[other] = Number(nextUnread[other] || 0) + 1;
+
+    const participantProfiles =
+      (data.participantProfiles as Record<string, { fullName?: string }> | undefined) ?? {};
+    senderName =
+      participantProfiles[user.uid]?.fullName || user.displayName || "Someone";
+
+    tx.set(messageRef, { senderId: user.uid, content, createdAt: serverTimestamp() });
+    tx.update(conversationRef, {
+      lastMessage: content,
+      lastMessageId: messageRef.id,
+      lastMessageAt: serverTimestamp(),
+      participantIds: arrayUnion(...mergedIds),
+      unreadCounts: nextUnread,
+    });
   });
-  await batch.commit();
+
+  if (recipientId) {
+    await createUserNotification({
+      userId: recipientId,
+      title: "New message",
+      body: `${senderName}: ${content.length > 60 ? `${content.slice(0, 57)}...` : content}`,
+      type: "message",
+      refId: conversationId,
+    });
+  }
 }
 
 export async function updateMessage(conversationId: string, messageId: string, content: string) {
+  const user = requireUser();
   const messageRef = doc(db, "conversations", conversationId, "messages", messageId);
   const convRef = doc(db, "conversations", conversationId);
   
   await runTransaction(db, async (tx) => {
     const convSnap = await tx.get(convRef);
+    const msgSnap = await tx.get(messageRef);
+    if (!msgSnap.exists()) throw new Error("Message not found");
+    if (msgSnap.data().senderId !== user.uid) {
+      throw new Error("You can only edit your own messages");
+    }
     
     tx.update(messageRef, {
       content,
@@ -322,11 +475,17 @@ export async function updateMessage(conversationId: string, messageId: string, c
 }
 
 export async function deleteMessage(conversationId: string, messageId: string) {
+  const user = requireUser();
   const messageRef = doc(db, "conversations", conversationId, "messages", messageId);
   const convRef = doc(db, "conversations", conversationId);
 
   await runTransaction(db, async (tx) => {
     const convSnap = await tx.get(convRef);
+    const msgSnap = await tx.get(messageRef);
+    if (!msgSnap.exists()) throw new Error("Message not found");
+    if (msgSnap.data().senderId !== user.uid) {
+      throw new Error("You can only delete your own messages");
+    }
     tx.delete(messageRef);
 
     // If this was the last message, try to find the previous one for the preview
@@ -387,6 +546,32 @@ export async function markNotificationsRead(userId: string) {
   const batch = writeBatch(db);
   snap.docs.forEach((d) => batch.update(d.ref, { isRead: true }));
   await batch.commit();
+}
+
+export async function markNotificationRead(notificationId: string) {
+  const user = requireUser();
+  await updateDoc(doc(db, "notifications", user.uid, "items", notificationId), {
+    isRead: true,
+  });
+}
+
+export async function markConversationRead(conversationId: string) {
+  const user = requireUser();
+  const convRef = doc(db, "conversations", conversationId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(convRef);
+    if (!snap.exists()) return;
+    const data = snap.data() as Record<string, unknown>;
+    const unreadCounts =
+      (data.unreadCounts as Record<string, number> | undefined) ?? {};
+    if ((unreadCounts[user.uid] || 0) === 0) return;
+    tx.update(convRef, {
+      unreadCounts: {
+        ...unreadCounts,
+        [user.uid]: 0,
+      },
+    });
+  });
 }
 
 // ─── AI Chat Persistence ────────────────────────────────────────────────────

@@ -47,6 +47,7 @@ export type Conversation = {
   participantIds: string[];
   participantKey: string;
   participantProfiles?: Record<string, { fullName: string; avatarUrl?: string }>;
+  unreadCounts?: Record<string, number>;
   lastMessage?: string;
   lastMessageAt?: string;
   createdAt: string;

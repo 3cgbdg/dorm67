@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { registerWithEmail } from "@/lib/auth";
 import { auth } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { handleAppError } from "@/lib/utils";
-import { DORMS, UNIVERSITIES } from "@/lib/constants";
+import { DORM_SELECT_PLACEHOLDER, DORMS, UNIVERSITIES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,10 @@ export function RegisterPage() {
   );
 
   const university = UNIVERSITIES.find((item) => item.id === universityId);
+
+  useEffect(() => {
+    setDormName("");
+  }, [universityId]);
 
   const handleSubmit = async () => {
     if (!university) return;
@@ -93,9 +97,10 @@ export function RegisterPage() {
           </Field>
           <Field label="Dorm">
             <Select
-              value={dormName}
-              onValueChange={setDormName}
-              options={[{ value: "", label: "Select dorm" }, ...dormOptions]}
+              value={dormName || DORM_SELECT_PLACEHOLDER}
+              onValueChange={(v) => setDormName(v === DORM_SELECT_PLACEHOLDER ? "" : v)}
+              options={[{ value: DORM_SELECT_PLACEHOLDER, label: "Select dorm" }, ...dormOptions]}
+              placeholder="Select dorm"
             />
           </Field>
           <Button disabled={loading} className="w-full" onClick={handleSubmit}>

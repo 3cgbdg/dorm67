@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { db } from "@/lib/firebase";
 import { findOrCreateDirectConversation } from "@/lib/firestore";
 import { useAuthStore } from "@/store/authStore";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Search } from "lucide-react";
 import { EmptyState } from "@/components/data/EmptyState";
 import { PullRefreshChrome } from "@/components/layout/PullRefreshChrome";
 import { Input } from "@/components/ui/input";
@@ -98,69 +98,86 @@ export function ChatsPage() {
   return (
     <>
       <PullRefreshChrome onRefresh={onPull} />
-      <div className="page-container space-y-4">
-      <h2 className="text-2xl font-semibold">Chats</h2>
-      <Input
-        placeholder="Search conversations or people..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-      {search.trim().length > 0 && search.trim().length < 2 ? (
-        <p className="text-sm text-ink-soft">
-          Type at least 2 letters to search people in your university.
-        </p>
-      ) : null}
-
-      {searchUsers.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-ink-soft">People from your university</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {searchUsers.map((candidate) => (
-              <UserCard
-                key={candidate.id}
-                user={candidate}
-                onMessage={async (userId) => {
-                  const conversationId = await findOrCreateDirectConversation(userId);
-                  navigate(`/conversation/${conversationId}`);
-                }}
-              />
-            ))}
-          </div>
+      <div className="page-container space-y-5 pb-4">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-semibold tracking-tight">Chats</h2>
+          <p className="text-sm text-ink-soft">Message classmates and sellers in one place.</p>
         </div>
-      ) : null}
 
-      <div className="space-y-2">
-        {filtered.length === 0 && !search ? (
-          <EmptyState
-            icon={MessageCircle}
-            title="No messages yet"
-            description="You don't have any active chats. Search for a student above to start a conversation, or message a seller from the marketplace."
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-soft" />
+          <Input
+            className="h-11 rounded-xl border-border/70 bg-surface pl-10"
+            placeholder="Search conversations or people..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
           />
-        ) : filtered.length === 0 && search && searchUsers.length === 0 ? (
-          <EmptyState
-            icon={MessageCircle}
-            title="No results found"
-            description="No conversations or students match your search."
-          />
-        ) : (
-          filtered.map((conversation) => {
-            const otherId = conversation.participantIds.find((id) => id !== user?.uid);
-            const other = otherId ? conversation.participantProfiles?.[otherId] : undefined;
-            const otherName = other?.fullName ?? "Student";
-            const otherAvatar = other?.avatarUrl;
+        </div>
+        {search.trim().length > 0 && search.trim().length < 2 ? (
+          <p className="text-sm text-ink-soft">
+            Type at least 2 letters to search people in your university.
+          </p>
+        ) : null}
 
-            return (
-              <ConversationItem
-                key={conversation.id}
-                conversation={conversation}
-                otherName={otherName}
-                otherAvatar={otherAvatar}
-              />
-            );
-          })
-        )}
+        {searchUsers.length > 0 ? (
+          <div className="space-y-3 rounded-2xl border border-border/70 bg-surface/70 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
+              People from your university
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {searchUsers.map((candidate) => (
+                <UserCard
+                  key={candidate.id}
+                  user={candidate}
+                  onMessage={async (userId) => {
+                    const conversationId = await findOrCreateDirectConversation(userId);
+                    navigate(`/conversation/${conversationId}`);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          {filtered.length > 0 ? (
+            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+              Conversations
+            </p>
+          ) : null}
+
+          {filtered.length === 0 && !search ? (
+            <EmptyState
+              icon={MessageCircle}
+              title="No messages yet"
+              description="You don't have any active chats. Search for a student above to start a conversation, or message a seller from the marketplace."
+            />
+          ) : filtered.length === 0 && search && searchUsers.length === 0 ? (
+            <EmptyState
+              icon={MessageCircle}
+              title="No results found"
+              description="No conversations or students match your search."
+            />
+          ) : (
+            filtered.map((conversation) => {
+              const otherId = conversation.participantIds.find((id) => id !== user?.uid);
+              const other = otherId ? conversation.participantProfiles?.[otherId] : undefined;
+              const otherName = other?.fullName ?? "Student";
+              const otherAvatar = other?.avatarUrl;
+
+              return (
+                <ConversationItem
+                  key={conversation.id}
+                  conversation={conversation}
+                  otherName={otherName}
+                  otherAvatar={otherAvatar}
+                  unreadCount={Number(conversation.unreadCounts?.[user?.uid || ""] || 0)}
+                />
+              );
+            })
+          )}
+        </div>
       </div>
-    </div>
     </>
   );
 }

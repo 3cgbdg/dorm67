@@ -7,7 +7,11 @@ import { z } from "zod";
 import type { AuthRequest } from "../middleware/auth.js";
 import { admin } from "../firebaseAdmin.js";
 import { env } from "../config.js";
-import { checkTarasRateLimit, consumeAiTarasQuota } from "../services/aiUsage.js";
+import {
+  checkTarasRateLimit,
+  consumeAiTarasQuota,
+  consumeAiTarasWeeklyGenerateQuota,
+} from "../services/aiUsage.js";
 import { analyzeTemplateFromBuffers } from "../services/taras/generate.js";
 import { TemplateStyleSchema } from "../services/taras/outline.js";
 import { TarasLanguageSchema, sanitizeInputs } from "../services/taras/sanitizeInputs.js";
@@ -283,6 +287,15 @@ aiTarasRouter.post("/generate", async (req: AuthRequest, res) => {
     const okRate = await checkTarasRateLimit(userId);
     if (!okRate) {
       res.status(429).json({ error: "Too many requests. Try again in a minute." });
+      return;
+    }
+
+    const weekly = await consumeAiTarasWeeklyGenerateQuota(userId);
+    if (!weekly.allowed) {
+      res.status(429).json({
+        error: "Weekly Taras generation limit reached (1 per week)",
+        ...weekly,
+      });
       return;
     }
 

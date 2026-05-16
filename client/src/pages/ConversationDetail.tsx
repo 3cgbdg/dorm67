@@ -1,12 +1,22 @@
 import { useEffect, useState, useRef } from "react";
 import { collection, doc, onSnapshot, orderBy, query, getDoc } from "firebase/firestore";
 import { useParams, useNavigate } from "react-router-dom";
-import { sendMessage, updateMessage, deleteMessage } from "@/lib/firestore";
+import { sendMessage, updateMessage, deleteMessage, markConversationRead } from "@/lib/firestore";
 import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/store/authStore";
 import { ConversationMessageBubble } from "@/components/feature/ConversationMessageBubble";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ChevronLeft, Send, User, Smile, Edit2, Check, X, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
@@ -32,6 +42,8 @@ export function ConversationDetailPage() {
   const [showEmoji, setShowEmoji] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,6 +65,11 @@ export function ConversationDetailPage() {
     };
     getOtherUser();
     return () => unsubMessages();
+  }, [id, user]);
+
+  useEffect(() => {
+    if (!id || !user) return;
+    void markConversationRead(id);
   }, [id, user]);
 
   useEffect(() => {
@@ -85,13 +102,17 @@ export function ConversationDetailPage() {
     }
   };
 
-  const handleDelete = async (messageId: string) => {
-    if (!window.confirm("Are you sure you want to delete this message?")) return;
+  const handleDelete = async () => {
+    if (!deleteTargetId) return;
     try {
-      await deleteMessage(id, messageId);
+      setDeleting(true);
+      await deleteMessage(id, deleteTargetId);
+      setDeleteTargetId(null);
       toast.success("Message deleted");
     } catch (err) {
       handleAppError(err, toast);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -137,6 +158,13 @@ export function ConversationDetailPage() {
                         value={editValue} 
                         onChange={(e) => setEditValue(e.target.value)}
                         className="h-8 bg-bg text-ink text-sm"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void handleUpdate();
+                          if (e.key === "Escape") {
+                            setEditingId(null);
+                            setEditValue("");
+                          }
+                        }}
                         autoFocus
                       />
                       <div className="flex justify-end gap-1">
@@ -147,30 +175,38 @@ export function ConversationDetailPage() {
                   ) : (
                     <>
                       <p className="text-sm leading-relaxed">{item.content}</p>
-                      <div className={`flex items-center gap-1 mt-1 opacity-70 ${isMe ? "justify-end" : ""}`}>
-                        {item.editedAt && <span className="text-[8px] font-medium uppercase tracking-tight">Edited</span>}
-                        <p className="text-[9px]">
-                          {item.createdAt ? new Date(item.createdAt.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "..."}
-                        </p>
-                      </div>
-                      {isMe && (
-                        <div className="absolute -left-14 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-50 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => { setEditingId(item.id); setEditValue(item.content); }}
-                            className="p-1 hover:text-brand transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(item.id)}
-                            className="p-1 hover:text-danger transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                      <div className={`mt-1 flex items-center ${isMe ? "justify-between gap-2" : "justify-end gap-1"}`}>
+                        <div className="flex items-center gap-1">
+                          {item.editedAt && (
+                            <span className={`text-[8px] font-medium uppercase tracking-tight ${isMe ? "text-brand-fg/80" : "text-ink-soft"}`}>
+                              Edited
+                            </span>
+                          )}
+                          <p className={`text-[9px] ${isMe ? "text-brand-fg/80" : "text-ink-soft"}`}>
+                            {item.createdAt ? new Date(item.createdAt.toDate()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "..."}
+                          </p>
                         </div>
-                      )}
+                        {isMe ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => { setEditingId(item.id); setEditValue(item.content); }}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-brand-fg/12 text-brand-fg transition-colors hover:bg-brand-fg/22"
+                              title="Edit"
+                              aria-label="Edit message"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setDeleteTargetId(item.id)}
+                              className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-brand-fg/12 text-brand-fg transition-colors hover:bg-danger/20 hover:text-danger"
+                              title="Delete"
+                              aria-label="Delete message"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     </>
                   )}
                 </ConversationMessageBubble>
@@ -181,18 +217,19 @@ export function ConversationDetailPage() {
       </div>
 
       {/* Input Area */}
-      <div className="sticky bottom-0 border-t bg-surface/80 p-4 pb-safe backdrop-blur-md relative">
-        {showEmoji && (
-          <div className="absolute bottom-full left-4 mb-2 flex gap-1 rounded-full border bg-surface p-2 shadow-xl animate-in fade-in slide-in-from-bottom-2">
-            {COMMON_EMOJIS.map(e => (
-              <button key={e} onClick={() => addEmoji(e)} className="h-8 w-8 rounded-full hover:bg-surface-2 text-lg transition-transform hover:scale-125">
-                {e}
-              </button>
-            ))}
-          </div>
-        )}
-        
-        <div className="mx-auto flex max-w-4xl gap-2">
+      <div className="sticky bottom-0 border-t bg-surface/80 p-4 pb-safe backdrop-blur-md">
+        <div className="relative mx-auto max-w-4xl">
+          {showEmoji && (
+            <div className="absolute bottom-full left-0 mb-2 flex gap-1 rounded-full border bg-surface p-2 shadow-xl animate-in fade-in slide-in-from-bottom-2">
+              {COMMON_EMOJIS.map((e) => (
+                <button key={e} onClick={() => addEmoji(e)} className="h-8 w-8 rounded-full hover:bg-surface-2 text-lg transition-transform hover:scale-125">
+                  {e}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-2">
           <Button variant="ghost" size="icon" className="rounded-full shrink-0" onClick={() => setShowEmoji(!showEmoji)}>
             <Smile className={cn("h-5 w-5 transition-colors", showEmoji && "text-brand")} />
           </Button>
@@ -206,8 +243,30 @@ export function ConversationDetailPage() {
           <Button size="icon" className="rounded-full shrink-0" onClick={handleSend} disabled={!message.trim()}>
             <Send className="h-4 w-4" />
           </Button>
+          </div>
         </div>
       </div>
+
+      <AlertDialog open={Boolean(deleteTargetId)} onOpenChange={(open) => (!open ? setDeleteTargetId(null) : null)}>
+        <AlertDialogContent className="max-w-sm p-4">
+          <AlertDialogHeader className="gap-1">
+            <AlertDialogTitle className="text-base">Delete message?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs leading-relaxed">
+              This message will be removed for everyone in this conversation.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 pt-4">
+            <AlertDialogCancel className="h-9 px-3" disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="h-9 px-3 bg-danger text-white hover:bg-danger/90"
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

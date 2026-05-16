@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Home, MessageCircle, Plus, ShoppingBag, User } from "lucide-react";
+import { Bell, Home, MessageCircle, Plus, ShoppingBag } from "lucide-react";
 import { UnreadDot } from "@/components/feature/UnreadDot";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useGlobalSearch } from "@/components/layout/global-search-context";
@@ -160,7 +160,7 @@ export function MobileNav() {
         </NavLink>
 
         <NavLink
-          to="/profile"
+          to="/notifications"
           className={({ isActive }) =>
             cn(tabClass, isActive ? "text-brand" : "text-ink-soft hover:text-ink")
           }
@@ -174,8 +174,11 @@ export function MobileNav() {
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               ) : null}
-              <User className="relative z-10 h-5 w-5" />
-              <span className="relative z-10">Me</span>
+              <div className="relative z-10">
+                <Bell className="h-5 w-5" />
+                <UnreadDot count={unreadCount} className="absolute -right-2 -top-1.5" />
+              </div>
+              <span className="relative z-10">Alerts</span>
             </>
           )}
         </NavLink>

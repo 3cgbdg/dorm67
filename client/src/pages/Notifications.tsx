@@ -14,6 +14,7 @@ import { markNotificationsRead } from "@/lib/firestore";
 import { EmptyState } from "@/components/data/EmptyState";
 import { PullRefreshChrome } from "@/components/layout/PullRefreshChrome";
 import { NotificationItem, type NotificationRow } from "@/components/feature/NotificationItem";
+import { Button } from "@/components/ui/button";
 
 export function NotificationsPage() {
   const user = useAuthStore((state) => state.user);
@@ -31,12 +32,8 @@ export function NotificationsPage() {
       setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() } as NotificationRow)));
     });
 
-    // Mark all as read after short delay (prevent instant mark on bounce)
-    const timer = setTimeout(() => markNotificationsRead(user.uid), 1500);
-
     return () => {
       unsub();
-      clearTimeout(timer);
     };
   }, [user]);
 
@@ -49,7 +46,22 @@ export function NotificationsPage() {
     <>
       <PullRefreshChrome onRefresh={onPull} />
       <div className="page-container space-y-4">
-      <h2 className="text-2xl font-semibold">Notifications</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-2xl font-semibold">Notifications</h2>
+        {items.some((item) => !item.isRead) ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              if (!user) return;
+              await markNotificationsRead(user.uid);
+              toast.success("All notifications marked as read");
+            }}
+          >
+            Mark all as read
+          </Button>
+        ) : null}
+      </div>
 
       {items.length === 0 ? (
         <EmptyState

@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { RouteErrorFallback } from "@/components/RouteErrorFallback";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppShell } from "@/components/layout/AppShell";
 import { OnboardingPage } from "@/pages/auth/Onboarding";
@@ -32,9 +33,11 @@ export const router = createBrowserRouter([
         <ProtectedRoute />
       </ErrorBoundary>
     ),
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         element: <AppShell />,
+        errorElement: <RouteErrorFallback />,
         children: [
           { index: true, element: <Navigate to="/feed" replace /> },
           { path: "feed", element: <FeedPage /> },
@@ -58,8 +61,24 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  { path: "/auth/onboarding", element: <OnboardingPage /> },
-  { path: "/auth/login", element: <LoginPage /> },
-  { path: "/auth/register", element: <RegisterPage /> },
-  { path: "/auth/university-select", element: <UniversitySelectPage /> },
+  {
+    path: "/auth/onboarding",
+    element: <OnboardingPage />,
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: "/auth/login",
+    element: <LoginPage />,
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: "/auth/register",
+    element: <RegisterPage />,
+    errorElement: <RouteErrorFallback />,
+  },
+  {
+    path: "/auth/university-select",
+    element: <UniversitySelectPage />,
+    errorElement: <RouteErrorFallback />,
+  },
 ]);

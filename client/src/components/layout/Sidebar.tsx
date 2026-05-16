@@ -70,7 +70,7 @@ export function Sidebar() {
     const active = item.end
       ? location.pathname === item.to
       : location.pathname.startsWith(item.to);
-        const showBadge = item.to === "/chats" && unreadCount > 0;
+    const showBadge = item.to === "/notifications" && unreadCount > 0;
 
     return (
       <Link key={item.to} to={item.to} className={linkClass(active)} title={item.label}>

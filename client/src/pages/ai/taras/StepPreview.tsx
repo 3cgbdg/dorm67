@@ -6,12 +6,10 @@ import { handleAppError } from "@/lib/utils";
 import {
   tarasDocxDownloadUrl,
   tarasFetchJob,
-  tarasFetchReportJson,
   tarasGenerate,
   tarasRefine,
   tarasRevertToRevision,
 } from "@/lib/tarasApi";
-import { reportJsonToHtml } from "@/lib/tarasReportHtml";
 import type { TarasInputs, TarasLanguage, TemplateStyle } from "@/lib/tarasTypes";
 import type { MetadataState } from "@/pages/ai/taras/StepMetadata";
 import { Button } from "@/components/ui/button";
@@ -91,27 +89,12 @@ export function StepPreview({
   const [sectionProgress, setSectionProgress] = useState<{ done: number; total: number } | null>(null);
   const [jobWarning, setJobWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [html, setHtml] = useState<string>("");
   const [refineText, setRefineText] = useState("");
   const [busyRefine, setBusyRefine] = useState(false);
   const [revisions, setRevisions] = useState<RevisionRow[]>([]);
   const [latestRevSnap, setLatestRevSnap] = useState(0);
-  const [viewingRev, setViewingRev] = useState<number | null>(null);
-  const [busyVersion, setBusyVersion] = useState(false);
   const [genKey, setGenKey] = useState(() => crypto.randomUUID());
   const startedGen = useRef(false);
-
-  function mergePartialWarning(rj: Record<string, unknown>) {
-    if (rj.partial === true) {
-      setJobWarning(
-        (prev) =>
-          prev ||
-          (typeof rj.budgetNotes === "string"
-            ? `Generated under budget — review for completeness. ${String(rj.budgetNotes).slice(0, 400)}`
-            : "Generated under budget — review for completeness.")
-      );
-    }
-  }
 
   useEffect(() => {
     setLocalJobId(jobId);
@@ -219,64 +202,13 @@ export function StepPreview({
     return () => unsub();
   }, [localJobId, userId]);
 
-  useEffect(() => {
-    if (status !== "ready" || !localJobId) return;
-    if (viewingRev != null) return;
-    void (async () => {
-      try {
-        const rj = await tarasFetchReportJson(localJobId);
-        setHtml(reportJsonToHtml(rj));
-        mergePartialWarning(rj);
-      } catch (e) {
-        handleAppError(e, toast);
-      }
-    })();
-  }, [status, localJobId, latestRevSnap, viewingRev]);
-
-  async function showLatestPreview() {
-    if (!localJobId) return;
-    setBusyVersion(true);
-    try {
-      setViewingRev(null);
-      const rj = await tarasFetchReportJson(localJobId);
-      setHtml(reportJsonToHtml(rj));
-      mergePartialWarning(rj);
-    } catch (e) {
-      handleAppError(e, toast);
-    } finally {
-      setBusyVersion(false);
-    }
-  }
-
-  async function viewRevision(rev: number) {
-    if (!localJobId) return;
-    setBusyVersion(true);
-    try {
-      const rj = await tarasFetchReportJson(localJobId, rev);
-      setViewingRev(rev);
-      setHtml(reportJsonToHtml(rj));
-      mergePartialWarning(rj);
-    } catch (e) {
-      handleAppError(e, toast);
-    } finally {
-      setBusyVersion(false);
-    }
-  }
-
   async function revertToRevision(rev: number) {
     if (!localJobId) return;
-    setBusyVersion(true);
     try {
       await tarasRevertToRevision(localJobId, rev);
-      setViewingRev(null);
-      const rj = await tarasFetchReportJson(localJobId);
-      setHtml(reportJsonToHtml(rj));
-      mergePartialWarning(rj);
       toast.message(`Restored version ${rev} as latest`);
     } catch (e) {
       handleAppError(e, toast);
-    } finally {
-      setBusyVersion(false);
     }
   }
 
@@ -333,23 +265,6 @@ export function StepPreview({
         {status === "ready" && revisions.length > 0 ? (
           <div className="space-y-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
             <div className="text-xs font-medium text-ink">Version history</div>
-            {viewingRev != null ? (
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-soft">
-                <span>
-                  Previewing revision <span className="font-medium text-ink">{viewingRev}</span> (download uses
-                  latest).
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={busyVersion}
-                  onClick={() => void showLatestPreview()}
-                >
-                  Show latest
-                </Button>
-              </div>
-            ) : null}
             <ul className="max-h-40 space-y-1 overflow-y-auto text-xs">
               {[...revisions]
                 .sort((a, b) => b.revision - a.revision)
@@ -375,19 +290,7 @@ export function StepPreview({
                         size="sm"
                         variant="ghost"
                         className="h-7 px-2"
-                        disabled={busyVersion || status !== "ready"}
-                        onClick={() => void viewRevision(r.revision)}
-                      >
-                        View
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2"
-                        disabled={
-                          busyVersion || status !== "ready" || r.revision === latestRevSnap
-                        }
+                        disabled={status !== "ready" || r.revision === latestRevSnap}
                         onClick={() => void revertToRevision(r.revision)}
                       >
                         Revert
@@ -417,13 +320,11 @@ export function StepPreview({
             </div>
           </div>
         ) : null}
-        {html ? (
-          <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: html }} />
-        ) : (
-          <p className="text-sm text-ink-soft">
-            {status === "ready" ? "Loading preview…" : "Preview appears when the job is ready."}
-          </p>
-        )}
+        <div className="rounded-lg border border-border bg-surface-2/30 px-3 py-2 text-sm text-ink-soft">
+          {status === "ready"
+            ? "Report is ready. Use Download .docx to get the generated file."
+            : "The report file will be available once generation is complete."}
+        </div>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={onBack}>
             Back
