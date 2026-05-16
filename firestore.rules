@@ -9,6 +9,23 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    /** Keys changed on this write (Firestore map diff). */
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    /** Anyone signed in may bump likes / comment count; core post fields stay owner-only. */
+    function announcementSocialOnlyUpdate() {
+      let keys = changedKeys();
+      return keys.hasOnly(['likedBy', 'likesCount'])
+        || keys.hasOnly(['commentsCount'])
+        || keys.hasOnly(['likedBy', 'likesCount', 'commentsCount']);
+    }
+
+    function commentSocialOnlyUpdate() {
+      return changedKeys().hasOnly(['likedBy', 'likesCount']);
+    }
+
     // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated();
@@ -30,12 +47,18 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isOwner(resource.data.userId);
-      
+      allow delete: if isOwner(resource.data.userId);
+      allow update: if isAuthenticated() && (
+        isOwner(resource.data.userId) || announcementSocialOnlyUpdate()
+      );
+
       match /comments/{commentId} {
         allow read: if isAuthenticated();
         allow create: if isAuthenticated();
-        allow update, delete: if isOwner(resource.data.userId);
+        allow delete: if isOwner(resource.data.userId);
+        allow update: if isAuthenticated() && (
+          isOwner(resource.data.userId) || commentSocialOnlyUpdate()
+        );
       }
     }
 

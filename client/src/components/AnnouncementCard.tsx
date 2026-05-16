@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import { MessageCircle, ThumbsUp } from "lucide-react";
 import { UserAvatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, cn, handleAppError } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
 import { toggleAnnouncementLike } from "@/lib/firestore";
 import type { Announcement } from "@/types";
@@ -38,8 +39,16 @@ export function AnnouncementCard({
             "inline-flex min-h-9 min-w-9 items-center gap-1.5 rounded-md px-2 transition-colors motion-reduce:transition-none",
             isLiked ? "text-brand" : "hover:text-ink"
           )}
-          onClick={() => {
-            void toggleAnnouncementLike(announcement.id);
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void (async () => {
+              try {
+                await toggleAnnouncementLike(announcement.id);
+              } catch (err) {
+                handleAppError(err, toast);
+              }
+            })();
           }}
         >
           <ThumbsUp className={cn("h-4 w-4 shrink-0", isLiked && "fill-current")} />

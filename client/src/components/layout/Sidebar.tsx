@@ -99,17 +99,17 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "relative z-40 hidden h-screen shrink-0 flex-col border-r border-border bg-surface/90 py-3 transition-[width] duration-200 ease-out lg:flex",
+        "sticky top-0 z-40 hidden h-screen min-h-0 shrink-0 flex-col border-r border-border bg-surface/90 py-3 transition-[width] duration-200 ease-out lg:flex lg:flex-col",
         expanded ? "w-60 px-2.5" : "w-[72px] px-2"
       )}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className={cn("flex items-center", expanded ? "justify-start gap-2 px-1" : "justify-center")}>
+      <div className={cn("shrink-0", expanded ? "flex items-center justify-start gap-2 px-1" : "flex items-center justify-center")}>
         <AppLogo compact={!expanded} />
       </div>
 
-      <nav className="mt-4 flex flex-1 flex-col gap-0.5 overflow-hidden">
+      <nav className="mt-4 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden overscroll-contain">
         <div className="space-y-1">{browse.map(renderLink)}</div>
         <Separator className="my-1.5" />
         <div className="space-y-1">{you.map(renderLink)}</div>
