@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { doc, setDoc } from "firebase/firestore";
 import { toast } from "sonner";
 import { auth, db } from "@/lib/firebase";
+import { useAuthStore } from "@/store/authStore";
 import { DORMS, UNIVERSITIES } from "@/lib/constants";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,9 @@ export function UniversitySelectPage() {
       { merge: true }
     );
     toast.success("Profile updated");
+    if (auth.currentUser) {
+      useAuthStore.getState().setUser(auth.currentUser);
+    }
     navigate("/feed");
   };
 

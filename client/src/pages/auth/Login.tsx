@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { loginWithEmail, loginWithGoogle } from "@/lib/auth";
+import { auth } from "@/lib/firebase";
+import { useAuthStore } from "@/store/authStore";
 import { handleAppError } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,9 @@ export function LoginPage() {
     try {
       setLoading(true);
       await loginWithEmail(email, password);
+      if (auth.currentUser) {
+        useAuthStore.getState().setUser(auth.currentUser);
+      }
       navigate("/feed");
     } catch (error) {
       handleAppError(error, toast);
@@ -30,6 +35,9 @@ export function LoginPage() {
     try {
       setLoading(true);
       const { exists } = await loginWithGoogle();
+      if (auth.currentUser) {
+        useAuthStore.getState().setUser(auth.currentUser);
+      }
       if (exists) {
         navigate("/feed");
       } else {

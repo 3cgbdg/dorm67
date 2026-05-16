@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { registerWithEmail } from "@/lib/auth";
+import { auth } from "@/lib/firebase";
+import { useAuthStore } from "@/store/authStore";
 import { handleAppError } from "@/lib/utils";
 import { DORMS, UNIVERSITIES } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
@@ -50,6 +52,9 @@ export function RegisterPage() {
         universityName: university.name,
         dormName,
       });
+      if (auth.currentUser) {
+        useAuthStore.getState().setUser(auth.currentUser);
+      }
       navigate("/feed");
     } catch (error) {
       handleAppError(error, toast);
