@@ -11,10 +11,12 @@ import { checkTarasRateLimit, consumeAiTarasQuota } from "../services/aiUsage.js
 import { analyzeTemplateFromBuffers } from "../services/taras/generate.js";
 import { TemplateStyleSchema } from "../services/taras/outline.js";
 import { TarasLanguageSchema, sanitizeInputs } from "../services/taras/sanitizeInputs.js";
+import { callAnthropicToolJson, measurementTableTool } from "../services/anthropic.js";
 import { deleteFilesWithPrefix, downloadBytes, listPathsWithPrefix, uploadBytes } from "../services/taras/storage.js";
 import { assertJobDocSize } from "../services/taras/jobDoc.js";
 import { REPORT_SCHEMA_VERSION } from "../services/taras/schema.js";
 import { TARAS_PROMPT_VERSION } from "../services/taras/constants.js";
+import { measurementsExtractSystemPrompt } from "../services/taras/prompts.js";
 
 export const aiTarasRouter = Router();
 
@@ -55,6 +57,12 @@ const RefineBodySchema = z.object({
 const AnalyzeBodySchema = z.object({
   draftId: z.string().min(1).max(120),
   pastedText: z.string().max(8000).optional(),
+});
+
+const ExtractMeasurementsBodySchema = z.object({
+  draftId: z.string().min(1).max(120),
+  pastedText: z.string().max(12000).optional(),
+  highQuality: z.boolean().optional(),
 });
 
 aiTarasRouter.post("/upload", upload.array("files", 3), async (req: AuthRequest, res) => {
@@ -111,10 +119,12 @@ aiTarasRouter.post("/template-analyze", async (req: AuthRequest, res) => {
   const { draftId, pastedText } = parsed.data;
 
   try {
-    const okRate = await checkTarasRateLimit(userId);
-    if (!okRate) {
-      res.status(429).json({ error: "Too many requests. Try again in a minute." });
-      return;
+    if (!env.TARAS_DISABLE_LIMITS) {
+      const okRate = await checkTarasRateLimit(userId);
+      if (!okRate) {
+        res.status(429).json({ error: "Too many requests. Try again in a minute." });
+        return;
+      }
     }
 
     const draftKeys = await listPathsWithPrefix(`aiTaras/${userId}/drafts/${draftId}/`);
@@ -149,6 +159,99 @@ aiTarasRouter.post("/template-analyze", async (req: AuthRequest, res) => {
   }
 });
 
+aiTarasRouter.post("/extract-measurements", async (req: AuthRequest, res) => {
+  if (!env.ANTHROPIC_API_KEY) {
+    res.status(503).json({ error: "Taras is not configured (ANTHROPIC_API_KEY)" });
+    return;
+  }
+  const userId = req.userId!;
+  const parsed = ExtractMeasurementsBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+  const { draftId, pastedText, highQuality } = parsed.data;
+
+  try {
+    if (!env.TARAS_DISABLE_LIMITS) {
+      const okRate = await checkTarasRateLimit(userId);
+      if (!okRate) {
+        res.status(429).json({ error: "Too many requests. Try again in a minute." });
+        return;
+      }
+    }
+
+    const draftKeys = await listPathsWithPrefix(`aiTaras/${userId}/drafts/${draftId}/`);
+    const buffers: Buffer[] = [];
+    const mediaTypes: string[] = [];
+    for (const key of draftKeys) {
+      const buf = await downloadBytes(key);
+      const ft = await fileTypeFromBuffer(buf);
+      if (!ft?.mime.startsWith("image/")) continue;
+      buffers.push(buf);
+      mediaTypes.push(ft.mime);
+    }
+
+    const content: Array<
+      | { type: "text"; text: string }
+      | {
+          type: "image";
+          source: {
+            type: "base64";
+            media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+            data: string;
+          };
+        }
+    > = [];
+    for (let i = 0; i < buffers.length; i++) {
+      content.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: (mediaTypes[i] || "image/jpeg") as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+          data: buffers[i].toString("base64"),
+        },
+      });
+    }
+    content.push({
+      type: "text",
+      text: `Extract measurements table from this task.\n${
+        pastedText ? `Task text hints:\n${pastedText}` : "No pasted text provided."
+      }`,
+    });
+
+    const parsedTable = await callAnthropicToolJson({
+      system: measurementsExtractSystemPrompt(),
+      messages: [{ role: "user", content }],
+      tools: [measurementTableTool],
+      toolName: "emit_measurements_table",
+      parse: (raw) => {
+        const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+        const headers = Array.isArray(r.headers)
+          ? r.headers.map((h) => String(h || "").trim()).filter(Boolean).slice(0, 20)
+          : [];
+        const rows = Array.isArray(r.rows)
+          ? r.rows
+              .map((row) =>
+                Array.isArray(row) ? row.map((c) => String(c ?? "").trim()).slice(0, 20) : []
+              )
+              .slice(0, 50)
+          : [];
+        const confidence = typeof r.confidence === "number" ? r.confidence : undefined;
+        const notes = typeof r.notes === "string" ? r.notes : "";
+        return { headers, rows, confidence, notes };
+      },
+      maxTokens: 2048,
+      model: highQuality ? "claude-sonnet-4-6" : undefined,
+    });
+
+    res.json({ table: parsedTable });
+  } catch (e) {
+    console.error("extract-measurements:", e);
+    res.status(500).json({ error: e instanceof Error ? e.message : "Extraction failed" });
+  }
+});
+
 aiTarasRouter.post("/generate", async (req: AuthRequest, res) => {
   const userId = req.userId!;
   if (!env.ANTHROPIC_API_KEY) {
@@ -176,16 +279,18 @@ aiTarasRouter.post("/generate", async (req: AuthRequest, res) => {
     }
   }
 
-  const okRate = await checkTarasRateLimit(userId);
-  if (!okRate) {
-    res.status(429).json({ error: "Too many requests. Try again in a minute." });
-    return;
-  }
+  if (!env.TARAS_DISABLE_LIMITS) {
+    const okRate = await checkTarasRateLimit(userId);
+    if (!okRate) {
+      res.status(429).json({ error: "Too many requests. Try again in a minute." });
+      return;
+    }
 
-  const quota = await consumeAiTarasQuota(userId, 1.0);
-  if (!quota.allowed) {
-    res.status(429).json({ error: "Taras quota exceeded", ...quota });
-    return;
+    const quota = await consumeAiTarasQuota(userId, 1.0);
+    if (!quota.allowed) {
+      res.status(429).json({ error: "Taras quota exceeded", ...quota });
+      return;
+    }
   }
 
   let sanitized;
@@ -223,7 +328,8 @@ aiTarasRouter.post("/generate", async (req: AuthRequest, res) => {
     draftId,
     templateRefs,
     templateStyle: styleParsed,
-    inputs: sanitized,
+    // Firestore rejects nested arrays; persist canonical JSON string.
+    inputsJson: JSON.stringify(sanitized),
     metadata,
     latestRevision: 0,
     latestReportPath: "",
@@ -290,16 +396,18 @@ aiTarasRouter.post("/refine", async (req: AuthRequest, res) => {
     return;
   }
 
-  const okRate = await checkTarasRateLimit(userId);
-  if (!okRate) {
-    res.status(429).json({ error: "Too many requests" });
-    return;
-  }
+  if (!env.TARAS_DISABLE_LIMITS) {
+    const okRate = await checkTarasRateLimit(userId);
+    if (!okRate) {
+      res.status(429).json({ error: "Too many requests" });
+      return;
+    }
 
-  const quota = await consumeAiTarasQuota(userId, 0.2);
-  if (!quota.allowed) {
-    res.status(429).json({ error: "Taras quota exceeded", ...quota });
-    return;
+    const quota = await consumeAiTarasQuota(userId, 0.2);
+    if (!quota.allowed) {
+      res.status(429).json({ error: "Taras quota exceeded", ...quota });
+      return;
+    }
   }
 
   const batch = admin.firestore().batch();

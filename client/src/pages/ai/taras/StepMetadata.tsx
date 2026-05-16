@@ -23,6 +23,14 @@ type Props = {
 };
 
 export function StepMetadata({ language, onLanguageChange, values, onChange, onBack, onNext }: Props) {
+  const canContinue = Boolean(
+    values.subject.trim() &&
+      values.labNumber.trim() &&
+      values.topic.trim() &&
+      values.studentName.trim() &&
+      values.group.trim()
+  );
+
   return (
     <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -95,7 +103,7 @@ export function StepMetadata({ language, onLanguageChange, values, onChange, onB
         <Button
           type="button"
           onClick={onNext}
-          disabled={!values.subject.trim() || !values.labNumber.trim() || !values.topic.trim()}
+          disabled={!canContinue}
         >
           Continue
         </Button>

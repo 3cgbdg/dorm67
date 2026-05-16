@@ -1,18 +1,29 @@
 import { randomUUID } from "node:crypto";
 import { admin } from "../firebaseAdmin.js";
 import { env } from "../config.js";
-import { generateReportJson, refineReportJson, type JobMetadata } from "./taras/generate.js";
+import {
+  generateReportJson,
+  refineReportJson,
+  type GenerateReportHooks,
+  type JobMetadata,
+} from "./taras/generate.js";
 import type { TemplateStyle } from "./taras/outline.js";
 import type { TarasLanguage } from "./taras/sanitizeInputs.js";
 import { sanitizeInputs } from "./taras/sanitizeInputs.js";
 import { parseReportJsonV1 } from "./taras/schema.js";
 import { renderDocx } from "./taras/renderDocx.js";
 import { uploadBytes, downloadBytes } from "./taras/storage.js";
+import { probeAnthropicLongOutput, isLongOutputSupported } from "./anthropic.js";
+import { startJobTelemetry } from "./taras/telemetry.js";
 
 const INSTANCE_ID = randomUUID();
-const LEASE_MS = 15 * 60 * 1000;
+const LEASE_MS = 30 * 60 * 1000;
 
 let activeLeaseRef: FirebaseFirestore.DocumentReference | null = null;
+
+function isFirestoreNotFound(err: unknown): boolean {
+  return Boolean(err && typeof err === "object" && (err as { code?: unknown }).code === 5);
+}
 
 function bucketPathForJob(userId: string, jobId: string, kind: "report" | "docx", rev: number) {
   const ext = kind === "report" ? "json" : "docx";
@@ -50,8 +61,10 @@ async function processQueuedJob(
   ref: FirebaseFirestore.DocumentReference
 ) {
   const snap = await ref.get();
+  if (!snap.exists) return;
   const d = snap.data() as Record<string, unknown>;
-  const inputs = sanitizeInputs(d.inputs);
+  const inputsRaw = typeof d.inputsJson === "string" ? JSON.parse(d.inputsJson) : d.inputs;
+  const inputs = sanitizeInputs(inputsRaw);
   const templateStyle = d.templateStyle as TemplateStyle;
   const language = d.language as TarasLanguage;
   const metadata = d.metadata as JobMetadata;
@@ -61,15 +74,36 @@ async function processQueuedJob(
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
+  const telemetry = startJobTelemetry(jobId, "pending", isLongOutputSupported());
+
+  const hooks: GenerateReportHooks = {
+    jobId,
+    telemetry,
+    renewLease: async () => {
+      await ref.update({
+        "lease.expiresAt": admin.firestore.Timestamp.fromMillis(Date.now() + LEASE_MS),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    },
+    onProgress: async (done, total) => {
+      await ref.update({
+        status: "generating_sections",
+        progress: { done, total },
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    },
+  };
+
   const report = await generateReportJson({
     inputs,
     templateStyle,
     language,
     metadata,
+    hooks,
   });
 
   await ref.update({
-    status: "generating_full",
+    status: "rendering",
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
@@ -78,11 +112,6 @@ async function processQueuedJob(
   const rev = 1;
   const reportPath = bucketPathForJob(userId, jobId, "report", rev);
   const docxPath = bucketPathForJob(userId, jobId, "docx", rev);
-
-  await ref.update({
-    status: "rendering",
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
 
   await uploadBytes(reportPath, bufJson, "application/json");
   await uploadBytes(
@@ -110,6 +139,15 @@ async function processQueuedJob(
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
+  if (report.partial) {
+    jobUpdate.warning =
+      "Generated within budget caps; some sections may be shorter than target. Review for completeness.";
+    if (report.budgetNotes) jobUpdate.budgetNotes = report.budgetNotes;
+  } else {
+    jobUpdate.warning = admin.firestore.FieldValue.delete();
+    jobUpdate.budgetNotes = admin.firestore.FieldValue.delete();
+  }
+
   await ref.update(jobUpdate);
 }
 
@@ -119,6 +157,7 @@ async function processRefiningJob(
   ref: FirebaseFirestore.DocumentReference
 ) {
   const snap = await ref.get();
+  if (!snap.exists) return;
   const d = snap.data() as Record<string, unknown>;
   const language = d.language as TarasLanguage;
   const instruction = String(d.pendingInstruction || "");
@@ -137,6 +176,7 @@ async function processRefiningJob(
   });
 
   const next = await refineReportJson({ report, instruction, language });
+
   const rev = prevRev + 1;
   const reportPath = bucketPathForJob(userId, jobId, "report", rev);
   const docxPath = bucketPathForJob(userId, jobId, "docx", rev);
@@ -174,6 +214,15 @@ async function processRefiningJob(
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 
+  if (next.partial) {
+    jobUpdate.warning =
+      "Generated within budget caps; some sections may be shorter than target. Review for completeness.";
+    if (next.budgetNotes) jobUpdate.budgetNotes = next.budgetNotes;
+  } else {
+    jobUpdate.warning = admin.firestore.FieldValue.delete();
+    jobUpdate.budgetNotes = admin.firestore.FieldValue.delete();
+  }
+
   await ref.update(jobUpdate);
 }
 
@@ -202,21 +251,26 @@ async function handleJobDoc(
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Taras job failed";
-    await ref.update({
-      status: "failed",
-      error: msg,
-      lease: admin.firestore.FieldValue.delete(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    try {
+      await ref.update({
+        status: "failed",
+        error: msg,
+        lease: admin.firestore.FieldValue.delete(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (updateErr) {
+      if (!isFirestoreNotFound(updateErr)) throw updateErr;
+    }
   }
 }
 
-export function startTarasQueueListener() {
+export async function startTarasQueueListenerAsync(): Promise<void> {
   if (!env.ANTHROPIC_API_KEY) {
     // eslint-disable-next-line no-console
     console.warn("Taras queue disabled: ANTHROPIC_API_KEY not set.");
     return;
   }
+  await probeAnthropicLongOutput();
 
   // eslint-disable-next-line no-console
   console.log("Taras queue listener started", INSTANCE_ID);
@@ -258,33 +312,47 @@ export function startTarasQueueListener() {
       const stuck = await admin
         .firestore()
         .collectionGroup("jobs")
-        .where("status", "in", ["generating_outline", "generating_full", "rendering", "refining"])
+        .where("status", "in", [
+          "generating_outline",
+          "generating_sections",
+          "generating_full",
+          "rendering",
+          "refining",
+        ])
         .limit(25)
         .get();
 
       for (const doc of stuck.docs) {
-        const d = doc.data() as Record<string, unknown>;
-        const lease = d.lease as { expiresAt?: FirebaseFirestore.Timestamp } | undefined;
-        const exp = lease?.expiresAt?.toMillis?.() ?? 0;
-        if (exp > Date.now()) continue;
-        const retries = Number(d.retryCount || 0);
-        if (retries >= 3) {
+        try {
+          const d = doc.data() as Record<string, unknown>;
+          const lease = d.lease as { expiresAt?: FirebaseFirestore.Timestamp } | undefined;
+          const exp = lease?.expiresAt?.toMillis?.() ?? 0;
+          if (exp > Date.now()) continue;
+          const retries = Number(d.retryCount || 0);
+          if (retries >= 3) {
+            await doc.ref.update({
+              status: "failed",
+              error: "Job stalled after multiple retries",
+              lease: admin.firestore.FieldValue.delete(),
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            continue;
+          }
+          const prevStatus = d.status as string;
           await doc.ref.update({
-            status: "failed",
-            error: "Job stalled after multiple retries",
+            status: prevStatus === "refining" ? "refining" : "queued",
             lease: admin.firestore.FieldValue.delete(),
+            retryCount: retries + 1,
             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
           });
-          continue;
+        } catch (err) {
+          if (!isFirestoreNotFound(err)) throw err;
         }
-        const prevStatus = d.status as string;
-        await doc.ref.update({
-          status: prevStatus === "refining" ? "refining" : "queued",
-          lease: admin.firestore.FieldValue.delete(),
-          retryCount: retries + 1,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
       }
     })();
   }, 60_000);
+}
+
+export function startTarasQueueListener() {
+  void startTarasQueueListenerAsync();
 }

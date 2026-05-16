@@ -34,6 +34,8 @@ export const ReportSchemaV1 = z.object({
   language: z.enum(["uk", "en", "ru"]),
   sections: z.array(ReportSectionSchema).min(1).max(40),
   conclusions: z.array(boundedString(4000)).min(1).max(20),
+  partial: z.boolean().optional(),
+  budgetNotes: boundedString(2000).optional(),
 });
 
 export type ReportJsonV1 = z.infer<typeof ReportSchemaV1>;

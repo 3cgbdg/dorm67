@@ -41,6 +41,24 @@ export async function tarasAnalyzeTemplate(body: {
   return res.json() as Promise<{ templateStyle: unknown }>;
 }
 
+export async function tarasExtractMeasurements(body: {
+  draftId: string;
+  pastedText?: string;
+  highQuality?: boolean;
+}): Promise<{
+  table: { headers: string[]; rows: string[][]; confidence?: number; notes?: string };
+}> {
+  const res = await fetch(`${API_URL}/api/ai/taras/extract-measurements`, {
+    method: "POST",
+    headers: await authHeader(),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<{
+    table: { headers: string[]; rows: string[][]; confidence?: number; notes?: string };
+  }>;
+}
+
 export async function tarasGenerate(body: Record<string, unknown>): Promise<{ jobId: string }> {
   const res = await fetch(`${API_URL}/api/ai/taras/generate`, {
     method: "POST",

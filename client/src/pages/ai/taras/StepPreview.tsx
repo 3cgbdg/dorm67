@@ -47,12 +47,17 @@ function normalizeRevisions(raw: unknown): RevisionRow[] {
   return out;
 }
 
-function statusLabel(s: string | undefined) {
+function statusLabel(s: string | undefined, progress?: { done?: number; total?: number }) {
   switch (s) {
     case "queued":
       return "Queued…";
     case "generating_outline":
       return "Planning outline…";
+    case "generating_sections": {
+      const d = progress?.done ?? 0;
+      const t = progress?.total ?? 0;
+      return t > 0 ? `Writing sections… (${d}/${t})` : "Writing sections…";
+    }
     case "generating_full":
       return "Writing report…";
     case "rendering":
@@ -82,6 +87,8 @@ export function StepPreview({
 }: Props) {
   const [localJobId, setLocalJobId] = useState<string | null>(jobId);
   const [status, setStatus] = useState<string | undefined>(undefined);
+  const [sectionProgress, setSectionProgress] = useState<{ done: number; total: number } | null>(null);
+  const [jobWarning, setJobWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [html, setHtml] = useState<string>("");
   const [refineText, setRefineText] = useState("");
@@ -92,6 +99,18 @@ export function StepPreview({
   const [busyVersion, setBusyVersion] = useState(false);
   const [genKey, setGenKey] = useState(() => crypto.randomUUID());
   const startedGen = useRef(false);
+
+  function mergePartialWarning(rj: Record<string, unknown>) {
+    if (rj.partial === true) {
+      setJobWarning(
+        (prev) =>
+          prev ||
+          (typeof rj.budgetNotes === "string"
+            ? `Generated under budget — review for completeness. ${String(rj.budgetNotes).slice(0, 400)}`
+            : "Generated under budget — review for completeness.")
+      );
+    }
+  }
 
   useEffect(() => {
     setLocalJobId(jobId);
@@ -146,6 +165,13 @@ export function StepPreview({
     const unsub = onSnapshot(ref, (snap) => {
       const d = snap.data();
       setStatus(d?.status as string | undefined);
+      const p = d?.progress as { done?: number; total?: number } | undefined;
+      if (p && typeof p.done === "number" && typeof p.total === "number") {
+        setSectionProgress({ done: p.done, total: p.total });
+      } else {
+        setSectionProgress(null);
+      }
+      setJobWarning(typeof d?.warning === "string" ? d.warning : null);
       setError((d?.error as string) || null);
       setRevisions(normalizeRevisions(d?.revisions));
       const lr = d?.latestRevision;
@@ -161,6 +187,7 @@ export function StepPreview({
       try {
         const rj = await tarasFetchReportJson(localJobId);
         setHtml(reportJsonToHtml(rj));
+        mergePartialWarning(rj);
       } catch (e) {
         handleAppError(e, toast);
       }
@@ -174,6 +201,7 @@ export function StepPreview({
       setViewingRev(null);
       const rj = await tarasFetchReportJson(localJobId);
       setHtml(reportJsonToHtml(rj));
+      mergePartialWarning(rj);
     } catch (e) {
       handleAppError(e, toast);
     } finally {
@@ -188,6 +216,7 @@ export function StepPreview({
       const rj = await tarasFetchReportJson(localJobId, rev);
       setViewingRev(rev);
       setHtml(reportJsonToHtml(rj));
+      mergePartialWarning(rj);
     } catch (e) {
       handleAppError(e, toast);
     } finally {
@@ -203,6 +232,7 @@ export function StepPreview({
       setViewingRev(null);
       const rj = await tarasFetchReportJson(localJobId);
       setHtml(reportJsonToHtml(rj));
+      mergePartialWarning(rj);
       toast.message(`Restored version ${rev} as latest`);
     } catch (e) {
       handleAppError(e, toast);
@@ -253,8 +283,14 @@ export function StepPreview({
     <div className="flex flex-col gap-4 lg:flex-row">
       <div className="min-w-0 flex-1 space-y-3 rounded-xl border border-border bg-surface p-4">
         <div className="text-sm text-ink-soft">
-          Status: <span className="font-medium text-ink">{statusLabel(status)}</span>
+          Status:{" "}
+          <span className="font-medium text-ink">{statusLabel(status, sectionProgress ?? undefined)}</span>
         </div>
+        {jobWarning && status === "ready" ? (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+            {jobWarning}
+          </div>
+        ) : null}
         {status === "ready" && revisions.length > 0 ? (
           <div className="space-y-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
             <div className="text-xs font-medium text-ink">Version history</div>
