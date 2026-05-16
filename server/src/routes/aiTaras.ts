@@ -325,6 +325,110 @@ aiTarasRouter.post("/refine", async (req: AuthRequest, res) => {
   res.json({ jobId });
 });
 
+type RevisionEntry = {
+  revision?: number;
+  reportPath?: string;
+  docxPath?: string;
+  instruction?: string;
+};
+
+function findRevisionPaths(
+  data: Record<string, unknown>,
+  revision: number
+): { reportPath: string; docxPath: string } | null {
+  const revs = data.revisions as RevisionEntry[] | undefined;
+  if (!revs?.length) return null;
+  const hit = revs.find((r) => Number(r.revision) === revision);
+  if (hit?.reportPath && hit?.docxPath) {
+    return { reportPath: hit.reportPath, docxPath: hit.docxPath };
+  }
+  return null;
+}
+
+aiTarasRouter.get("/jobs/:id/report-json", async (req: AuthRequest, res) => {
+  const userId = req.userId!;
+  const jobId = String(req.params.id);
+  const ref = admin.firestore().collection("aiTarasJobs").doc(userId).collection("jobs").doc(jobId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const data = snap.data() as Record<string, unknown>;
+  if (data.ownerUid !== userId) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const rawRev = req.query.revision;
+  let reportPath: string | undefined;
+  if (rawRev === undefined || rawRev === "") {
+    reportPath = data.latestReportPath as string | undefined;
+  } else {
+    const revision = Number(rawRev);
+    if (!Number.isFinite(revision) || revision < 1) {
+      res.status(400).json({ error: "Invalid revision" });
+      return;
+    }
+    const found = findRevisionPaths(data, revision);
+    if (!found) {
+      res.status(404).json({ error: "Revision not found" });
+      return;
+    }
+    reportPath = found.reportPath;
+  }
+
+  if (!reportPath) {
+    res.status(404).json({ error: "No report data" });
+    return;
+  }
+
+  const buf = await downloadBytes(reportPath);
+  const json = JSON.parse(buf.toString("utf8"));
+  res.json(json);
+});
+
+aiTarasRouter.post("/jobs/:id/revert", async (req: AuthRequest, res) => {
+  const userId = req.userId!;
+  const jobId = String(req.params.id);
+  const RevertSchema = z.object({ revision: z.number().int().positive() });
+  const parsed = RevertSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid body", details: parsed.error.flatten() });
+    return;
+  }
+
+  const ref = admin.firestore().collection("aiTarasJobs").doc(userId).collection("jobs").doc(jobId);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  const data = snap.data() as Record<string, unknown>;
+  if (data.ownerUid !== userId) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+  if (data.status !== "ready") {
+    res.status(400).json({ error: "Job must be ready to revert" });
+    return;
+  }
+
+  const found = findRevisionPaths(data, parsed.data.revision);
+  if (!found) {
+    res.status(404).json({ error: "Revision not found" });
+    return;
+  }
+
+  await ref.update({
+    latestRevision: parsed.data.revision,
+    latestReportPath: found.reportPath,
+    docxPath: found.docxPath,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  res.json({ ok: true });
+});
+
 aiTarasRouter.get("/jobs", async (req: AuthRequest, res) => {
   const userId = req.userId!;
   const limit = Math.min(Number(req.query.limit) || 20, 50);

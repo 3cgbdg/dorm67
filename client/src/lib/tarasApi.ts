@@ -10,6 +10,11 @@ async function authHeader(): Promise<HeadersInit> {
   };
 }
 
+async function authBearer(): Promise<HeadersInit> {
+  const token = await auth.currentUser?.getIdToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function tarasUpload(files: File[]): Promise<{ draftId: string; paths: string[] }> {
   const token = await auth.currentUser?.getIdToken();
   const fd = new FormData();
@@ -89,6 +94,29 @@ export async function tarasFetchJob(jobId: string): Promise<Record<string, unkno
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json() as Promise<Record<string, unknown>>;
+}
+
+export async function tarasFetchReportJson(
+  jobId: string,
+  revision?: number
+): Promise<Record<string, unknown>> {
+  const qs =
+    revision !== undefined ? `?revision=${encodeURIComponent(String(revision))}` : "";
+  const res = await fetch(
+    `${API_URL}/api/ai/taras/jobs/${encodeURIComponent(jobId)}/report-json${qs}`,
+    { headers: await authBearer() }
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json() as Promise<Record<string, unknown>>;
+}
+
+export async function tarasRevertToRevision(jobId: string, revision: number): Promise<void> {
+  const res = await fetch(`${API_URL}/api/ai/taras/jobs/${encodeURIComponent(jobId)}/revert`, {
+    method: "POST",
+    headers: await authHeader(),
+    body: JSON.stringify({ revision }),
+  });
+  if (!res.ok) throw new Error(await res.text());
 }
 
 export function tarasDocxDownloadUrl(jobId: string): string {
