@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Bell, Home, MessageCircle, Plus, ShoppingBag } from "lucide-react";
+import { Bell, Home, MessageCircle, Moon, Plus, ShoppingBag, Sun, User } from "lucide-react";
 import { UnreadDot } from "@/components/feature/UnreadDot";
 import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { useGlobalSearch } from "@/components/layout/global-search-context";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetPortal, SheetOverlay } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useUiStore } from "@/store/uiStore";
 
 const tabClass =
   "relative flex min-h-[44px] flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors";
@@ -17,15 +18,13 @@ export function MobileNav() {
   const navigate = useNavigate();
   const { open: openGlobalSearch } = useGlobalSearch();
   const unreadCount = useUnreadCount();
+  const theme = useUiStore((s) => s.theme);
+  const toggleTheme = useUiStore((s) => s.toggleTheme);
   const [sheetOpen, setSheetOpen] = useState(false);
   const path = location.pathname;
 
   const showFab = useMemo(() => {
     if (path.startsWith("/conversation/")) return false;
-    if (path.startsWith("/create-")) return false;
-    if (path === "/edit-profile") return false;
-    if (path === "/ai-assistant") return false;
-    if (path.startsWith("/ai-tools")) return false;
     return true;
   }, [path]);
 
@@ -59,22 +58,28 @@ export function MobileNav() {
       return [
         searchCampus,
         { label: "New message", onClick: () => go("/discover") },
+        { label: "Notifications", onClick: () => go("/notifications") },
         { label: "AI tools", onClick: () => go("/ai-tools") },
+        { label: theme === "dark" ? "Switch to light mode" : "Switch to dark mode", onClick: () => toggleTheme() },
       ];
     if (path.startsWith("/profile"))
       return [
         searchCampus,
         { label: "Edit profile", onClick: () => go("/edit-profile") },
+        { label: "Notifications", onClick: () => go("/notifications") },
         { label: "AI tools", onClick: () => go("/ai-tools") },
+        { label: theme === "dark" ? "Switch to light mode" : "Switch to dark mode", onClick: () => toggleTheme() },
       ];
     return [
       searchCampus,
       { label: "Post announcement", onClick: () => go("/create-announcement") },
       { label: "Sell item", onClick: () => go("/create-listing") },
       { label: "Find people", onClick: () => go("/discover") },
+      { label: "Notifications", onClick: () => go("/notifications") },
       { label: "Ask AI", onClick: () => go("/ai-assistant") },
+      { label: theme === "dark" ? "Switch to light mode" : "Switch to dark mode", onClick: () => toggleTheme() },
     ];
-  }, [path, navigate, openGlobalSearch]);
+  }, [path, navigate, openGlobalSearch, theme, toggleTheme]);
 
   return (
     <>
@@ -90,7 +95,7 @@ export function MobileNav() {
               {isActive ? (
                 <motion.span
                   layoutId="mobileDockPill"
-                  className="absolute inset-x-1 top-1 h-8 rounded-xl bg-brand-soft"
+                  className="absolute inset-x-1 inset-y-0.5 rounded-xl bg-brand-soft"
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               ) : null}
@@ -110,7 +115,7 @@ export function MobileNav() {
               {isActive ? (
                 <motion.span
                   layoutId="mobileDockPill"
-                  className="absolute inset-x-1 top-1 h-8 rounded-xl bg-brand-soft"
+                  className="absolute inset-x-1 inset-y-0.5 rounded-xl bg-brand-soft"
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               ) : null}
@@ -146,7 +151,7 @@ export function MobileNav() {
               {isActive ? (
                 <motion.span
                   layoutId="mobileDockPill"
-                  className="absolute inset-x-1 top-1 h-8 rounded-xl bg-brand-soft"
+                  className="absolute inset-x-1 inset-y-0.5 rounded-xl bg-brand-soft"
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               ) : null}
@@ -160,7 +165,7 @@ export function MobileNav() {
         </NavLink>
 
         <NavLink
-          to="/notifications"
+          to="/profile"
           className={({ isActive }) =>
             cn(tabClass, isActive ? "text-brand" : "text-ink-soft hover:text-ink")
           }
@@ -170,15 +175,14 @@ export function MobileNav() {
               {isActive ? (
                 <motion.span
                   layoutId="mobileDockPill"
-                  className="absolute inset-x-1 top-1 h-8 rounded-xl bg-brand-soft"
+                  className="absolute inset-x-1 inset-y-0.5 rounded-xl bg-brand-soft"
                   transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               ) : null}
               <div className="relative z-10">
-                <Bell className="h-5 w-5" />
-                <UnreadDot count={unreadCount} className="absolute -right-2 -top-1.5" />
+                <User className="h-5 w-5" />
               </div>
-              <span className="relative z-10">Alerts</span>
+              <span className="relative z-10">Me</span>
             </>
           )}
         </NavLink>
@@ -189,7 +193,17 @@ export function MobileNav() {
           <SheetOverlay />
           <SheetContent className="gap-0 p-0">
             <SheetHeader className="border-b border-border px-4 pb-3 pt-2 text-left">
-              <SheetTitle>Quick actions</SheetTitle>
+              <div className="flex items-center justify-between gap-2">
+                <SheetTitle>Quick actions</SheetTitle>
+                <button
+                  type="button"
+                  onClick={() => toggleTheme()}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface-2 text-ink-soft hover:text-ink"
+                  aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                >
+                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                </button>
+              </div>
             </SheetHeader>
             <div className="flex flex-col gap-2 p-4">
               {fabActions.map((a) => (

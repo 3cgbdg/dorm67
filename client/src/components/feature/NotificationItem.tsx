@@ -22,7 +22,7 @@ function notifLink(item: NotificationRow): string {
 
 export function NotificationItem({ item }: { item: NotificationRow }) {
   return (
-    <Link to={notifLink(item)} onClick={() => { void markNotificationRead(item.id); }}>
+    <Link to={notifLink(item)} className="block" onClick={() => { void markNotificationRead(item.id); }}>
       <Card
         className={cn(
           "transition-colors hover:bg-surface-2/50",

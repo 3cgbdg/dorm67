@@ -70,7 +70,7 @@ export function NotificationsPage() {
           description="You're all caught up! When you get new messages or activity on your posts, they'll show up here."
         />
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {items.map((item) => (
             <NotificationItem key={item.id} item={item} />
           ))}
