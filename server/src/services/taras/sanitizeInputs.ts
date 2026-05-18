@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const TarasLanguageSchema = z.enum(["uk", "en", "ru"]);
+export const TarasLanguageSchema = z.enum(["uk", "en"]);
 export type TarasLanguage = z.infer<typeof TarasLanguageSchema>;
 
 const MAX_THEORY = 8000;

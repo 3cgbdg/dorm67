@@ -24,8 +24,7 @@ Return ONLY valid JSON for the requested tool schema.`;
 }
 
 export function outlineSystemPrompt(language: TarasLanguage): string {
-  const lang =
-    language === "uk" ? "Ukrainian" : language === "ru" ? "Russian" : "English";
+  const lang = language === "uk" ? "Ukrainian" : "English";
   return `You are Taras — outline writer for a formal lab report (${lang}).
 ${STYLE_ONLY}
 Produce a detailed outline for a long full report: **15–22 sections** where appropriate.
@@ -78,8 +77,7 @@ export function playbookForTaskType(taskType: string): string {
 }
 
 export function taskClassifierSystemPrompt(language: TarasLanguage): string {
-  const lang =
-    language === "uk" ? "Ukrainian" : language === "ru" ? "Russian" : "English";
+  const lang = language === "uk" ? "Ukrainian" : "English";
   return `You are Taras — task classifier for university lab work (${lang}).
 ${STYLE_ONLY}
 Read the user's subject, topic, goal, theory, procedure, and measurements hints.
@@ -98,8 +96,7 @@ export function sectionWriterSystemPrompt(
   requiresCalculation: boolean,
   playbook: string
 ): string {
-  const lang =
-    language === "uk" ? "Ukrainian" : language === "ru" ? "Russian" : "English";
+  const lang = language === "uk" ? "Ukrainian" : "English";
   const hints = methodHints.length ? methodHints.map((h) => `- ${h}`).join("\n") : "- (none)";
   const calcBlock = requiresCalculation
     ? `This task REQUIRES calculation/derivation in ${lang}:
@@ -139,8 +136,7 @@ Return ONLY valid JSON for the emit_section tool schema.`;
 }
 
 export function conclusionsSystemPrompt(language: TarasLanguage): string {
-  const lang =
-    language === "uk" ? "Ukrainian" : language === "ru" ? "Russian" : "English";
+  const lang = language === "uk" ? "Ukrainian" : "English";
   return `You are Taras — you write formal lab report conclusions in ${lang}.
 ${STYLE_ONLY}
 You will receive the full facts ledger JSON and the report metadata context.
@@ -154,8 +150,7 @@ Return ONLY valid JSON for the emit_conclusions tool schema.`;
 
 /** Legacy single-shot full report (still used when legacy pipeline is forced). */
 export function fullReportSystemPrompt(language: TarasLanguage): string {
-  const lang =
-    language === "uk" ? "Ukrainian" : language === "ru" ? "Russian" : "English";
+  const lang = language === "uk" ? "Ukrainian" : "English";
   return `You are Taras — you write complete structured lab reports in ${lang}.
 ${STYLE_ONLY}
 All narrative text, headings, table cell text, and conclusions must be in ${lang}.
@@ -167,8 +162,7 @@ Return ONLY valid JSON for the tool schema.`;
 }
 
 export function refineSystemPrompt(language: TarasLanguage): string {
-  const lang =
-    language === "uk" ? "Ukrainian" : language === "ru" ? "Russian" : "English";
+  const lang = language === "uk" ? "Ukrainian" : "English";
   return `You are Taras — you revise an existing structured lab report in ${lang}.
 ${STYLE_ONLY}
 Apply the user's edit instruction. Preserve structure unless asked to change it.

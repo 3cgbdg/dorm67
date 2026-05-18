@@ -121,7 +121,7 @@ export function StepContent({
           maxLength={8000}
         />
       </div>
-      <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2/40 px-3 py-2">
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-2/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-0.5">
           <Label className="text-sm">Include measurements table</Label>
           <p className="text-xs text-ink-soft">
@@ -149,11 +149,12 @@ export function StepContent({
                 Fill at least one meaningful data row. You can edit column names.
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2 lg:flex">
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => onAutoParse?.(false)}
                 disabled={!canAutoParse || autoParsing}
               >
@@ -164,12 +165,13 @@ export function StepContent({
                 type="button"
                 size="sm"
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => onAutoParse?.(true)}
                 disabled={!canAutoParse || autoParsing}
               >
                 HQ parse
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={addColumn}>
+              <Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={addColumn}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 Add column
               </Button>
@@ -177,16 +179,17 @@ export function StepContent({
                 type="button"
                 size="sm"
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={removeLastColumn}
                 disabled={measurements.headers.length <= 1}
               >
                 <Minus className="mr-1 h-3.5 w-3.5" />
                 Remove column
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={fillTransportExample}>
+              <Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={fillTransportExample}>
                 Use example
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={addRow}>
+              <Button type="button" size="sm" variant="outline" className="w-full sm:w-auto" onClick={addRow}>
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 Add row
               </Button>
@@ -298,7 +301,7 @@ export function StepContent({
           maxLength={4000}
         />
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" variant="outline" onClick={onBack}>
           Back
         </Button>

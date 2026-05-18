@@ -15,7 +15,7 @@ export type OutlineJsonV1 = z.infer<typeof OutlineSchemaV1>;
 
 export const TemplateStyleSchema = z
   .object({
-    inferredLanguage: z.enum(["uk", "en", "ru", "unknown"]).optional(),
+    inferredLanguage: z.enum(["uk", "en", "unknown"]).optional(),
     hasTable: z.boolean().optional(),
     headingStyle: z.string().max(200).optional(),
     register: z.enum(["formal", "neutral", "unknown"]).optional(),

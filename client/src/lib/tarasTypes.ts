@@ -1,4 +1,4 @@
-export type TarasLanguage = "uk" | "en" | "ru";
+export type TarasLanguage = "uk" | "en";
 
 export type TarasInputs = {
   goal: string;

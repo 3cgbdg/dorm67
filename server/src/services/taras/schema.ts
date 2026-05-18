@@ -31,7 +31,7 @@ export const ReportSectionSchema = z.object({
 export const ReportSchemaV1 = z.object({
   schemaVersion: z.literal(1),
   metadata: ReportMetadataSchema,
-  language: z.enum(["uk", "en", "ru"]),
+  language: z.enum(["uk", "en"]),
   sections: z.array(ReportSectionSchema).min(1).max(40),
   conclusions: z.array(boundedString(4000)).min(1).max(20),
   partial: z.boolean().optional(),

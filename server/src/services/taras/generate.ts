@@ -357,10 +357,7 @@ function normalizeReportJson(params: {
     string,
     unknown
   >;
-  const lang =
-    obj.language === "uk" || obj.language === "en" || obj.language === "ru"
-      ? obj.language
-      : params.language;
+  const lang = obj.language === "uk" || obj.language === "en" ? obj.language : params.language;
   const today = new Date().toISOString().slice(0, 10);
 
   const normalized = {
@@ -825,15 +822,11 @@ async function generateReportJsonSectioned(params: {
     const heading =
       language === "uk"
         ? "Вихідні дані задачі"
-        : language === "ru"
-          ? "Исходные данные задачи"
-          : "Input task data";
+        : "Input task data";
     const paragraph =
       language === "uk"
         ? "Таблицю нижче сформовано з наданих користувачем даних."
-        : language === "ru"
-          ? "Таблица ниже сформирована из данных, предоставленных пользователем."
-          : "The table below is built from user-provided input data.";
+        : "The table below is built from user-provided input data.";
     report.sections = [
       {
         heading,
@@ -936,15 +929,11 @@ export async function generateReportJsonLegacy(params: {
     const heading =
       language === "uk"
         ? "Вихідні дані задачі"
-        : language === "ru"
-          ? "Исходные данные задачи"
-          : "Input task data";
+        : "Input task data";
     const paragraph =
       language === "uk"
         ? "Таблицю нижче сформовано з наданих користувачем даних."
-        : language === "ru"
-          ? "Таблица ниже сформирована из данных, предоставленных пользователем."
-          : "The table below is built from user-provided input data.";
+        : "The table below is built from user-provided input data.";
     normalized.sections = [
       {
         heading,

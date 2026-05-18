@@ -276,7 +276,7 @@ export const templateStyleTool: Tool = {
     type: "object",
     additionalProperties: true,
     properties: {
-      inferredLanguage: { type: "string", enum: ["uk", "en", "ru", "unknown"] },
+      inferredLanguage: { type: "string", enum: ["uk", "en", "unknown"] },
       hasTable: { type: "boolean" },
       headingStyle: { type: "string" },
       register: { type: "string", enum: ["formal", "neutral", "unknown"] },
@@ -318,7 +318,7 @@ export const reportTool: Tool = {
     properties: {
       schemaVersion: { type: "number", enum: [1] },
       metadata: { type: "object" },
-      language: { type: "string", enum: ["uk", "en", "ru"] },
+      language: { type: "string", enum: ["uk", "en"] },
       sections: { type: "array" },
       conclusions: { type: "array", items: { type: "string" } },
     },
